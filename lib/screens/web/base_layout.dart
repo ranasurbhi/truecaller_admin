@@ -43,7 +43,7 @@ class WebLayout extends StatelessWidget {
 
           ///  MAIN CONTENT
           Expanded(
-            child: Padding(padding: const EdgeInsets.all(24), child: child),
+            child: Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: child),
           ),
         ],
       ),
