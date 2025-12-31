@@ -33,13 +33,12 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     return WebLayout(
       selectedIndex: 1, // Team Members active
       child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(),
-            const SizedBox(height: 20),
-            _formCard(),
-          ],
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [_header(), const SizedBox(height: 20), _formCard()],
+          ),
         ),
       ),
     );
@@ -108,8 +107,10 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Profile Picture",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                "Profile Picture",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
               SizedBox(height: 4),
               Text(
                 "Upload a photo to identify the user in the system.",
@@ -219,8 +220,7 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(desc,
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
         ],
       ),
     );
@@ -231,18 +231,12 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       children: [
         Expanded(child: _inputField(a, "e.g. $a")),
         const SizedBox(width: 16),
-        Expanded(
-          child: _inputField(b, "e.g. $b", obscureText: obscureSecond),
-        ),
+        Expanded(child: _inputField(b, "e.g. $b", obscureText: obscureSecond)),
       ],
     );
   }
 
-  Widget _inputField(
-    String label,
-    String hint, {
-    bool obscureText = false,
-  }) {
+  Widget _inputField(String label, String hint, {bool obscureText = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,19 +247,21 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
           decoration: InputDecoration(
             hintText: hint,
             isDense: true,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
             ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
     );
   }
 
-  Widget _divider() =>
-      Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Divider());
+  Widget _divider() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Divider(),
+  );
 
   Widget _actionButtons() {
     return Row(

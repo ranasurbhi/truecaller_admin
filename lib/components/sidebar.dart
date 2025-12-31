@@ -50,10 +50,7 @@ class Sidebar extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       "Manager Panel",
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -64,7 +61,7 @@ class Sidebar extends StatelessWidget {
           const Divider(height: 1),
           const SizedBox(height: 8),
 
-          /// 🔹 MENU LIST
+          /// MENU LIST
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -75,6 +72,9 @@ class Sidebar extends StatelessWidget {
 
                 return InkWell(
                   onTap: () => onItemSelected(index),
+                  hoverColor: Colors.blue.shade50,
+                  splashColor: Colors.transparent,
+                  highlightColor: Colors.transparent,
                   child: Container(
                     margin: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -95,8 +95,7 @@ class Sidebar extends StatelessWidget {
                         Icon(
                           item["icon"],
                           size: 18,
-                          color:
-                              isActive ? Colors.blue : Colors.grey.shade600,
+                          color: isActive ? Colors.blue : Colors.grey.shade600,
                         ),
                         const SizedBox(width: 12),
                         Text(
@@ -119,7 +118,7 @@ class Sidebar extends StatelessWidget {
             ),
           ),
 
-          /// 🔹 FOOTER USER
+          ///  FOOTER USER
           const Divider(height: 1),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -134,10 +133,7 @@ class Sidebar extends StatelessWidget {
                     SizedBox(height: 2),
                     Text(
                       "alex@teleadmin.com",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey,
-                      ),
+                      style: TextStyle(fontSize: 10, color: Colors.grey),
                     ),
                   ],
                 ),

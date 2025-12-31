@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/components/sidebar.dart';
 
-class WebLayout extends StatefulWidget {
+class WebLayout extends StatelessWidget {
   final int selectedIndex;
   final Widget child;
 
@@ -12,50 +12,38 @@ class WebLayout extends StatefulWidget {
   });
 
   @override
-  State<WebLayout> createState() => _WebLayoutState();
-}
-
-class _WebLayoutState extends State<WebLayout> {
-  late int currentIndex;
-
-  final sidebarItems = [
-    {"icon": Icons.dashboard, "title": "Dashboard"},
-    {"icon": Icons.people, "title": "Team Members"},
-    {"icon": Icons.campaign, "title": "Campaigns"},
-    {"icon": Icons.bar_chart, "title": "Reports"},
-    {"icon": Icons.settings, "title": "Settings"},
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    currentIndex = widget.selectedIndex;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final sidebarItems = [
+      {"icon": Icons.dashboard, "title": "Dashboard", "route": "/"},
+      {"icon": Icons.add_circle_outlined, "title": "Add User", "route": "/add-user"},
+      {"icon": Icons.people, "title": "Team Members", "route": "/"},
+      {"icon": Icons.campaign, "title": "Campaigns", "route": "/"},
+      {"icon": Icons.bar_chart, "title": "Reports", "route": "/"},
+      {"icon": Icons.settings, "title": "Settings", "route": "/"},
+    ];
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       body: Row(
         children: [
+          ///  SIDEBAR
           Sidebar(
-            selectedIndex: currentIndex,
+            selectedIndex: selectedIndex,
             items: sidebarItems,
             onItemSelected: (index) {
-              setState(() {
-                currentIndex = index;
-              });
+              final route = sidebarItems[index]["route"] as String?;
 
-              /// later you can add navigation here
+              if (route != null) {
+                Navigator.pushReplacementNamed(context, route);
+              }
             },
           ),
 
-          /// 🔹 MAIN CONTENT
-          
-          SizedBox(width: 20,),
+          const SizedBox(width: 20),
 
+          ///  MAIN CONTENT
           Expanded(
-            child: widget.child,
+            child: Padding(padding: const EdgeInsets.all(24), child: child),
           ),
         ],
       ),
