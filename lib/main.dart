@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-
 import 'package:truecaller/screens/web/add_user.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
+import 'package:truecaller/screens/web/edit_user.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 
 void main() {
@@ -24,6 +24,7 @@ class MyApp extends StatelessWidget {
             '/': (context) => const DashboardScreen(),
             '/add-user': (context) => const AddUserWebScreen(),
             '/team-member': (context) =>  TeamMembersScreen(),
+            '/edit-user': (context) =>  EditUserScreen(),
 
         },
     );
