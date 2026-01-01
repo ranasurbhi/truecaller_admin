@@ -1,0 +1,310 @@
+import 'package:flutter/material.dart';
+import 'package:truecaller/models/team_member.dart';
+import 'package:truecaller/screens/web/base_layout.dart';
+
+class TeamMembersScreen extends StatefulWidget {
+  TeamMembersScreen({super.key});
+
+  @override
+  State<TeamMembersScreen> createState() => _TeamMembersScreenState();
+}
+
+class _TeamMembersScreenState extends State<TeamMembersScreen> {
+  String _selectedRole = "All Roles";
+
+  String _selectedStatus = "Active";
+
+  final List<TeamMember> members = [
+    TeamMember(
+      name: "Sarah Jenkins",
+      role: "Senior Telecaller",
+      email: "s.jenkins@example.com",
+      joiningDate: "Jan 15, 2021",
+      status: "Active",
+    ),
+    TeamMember(
+      name: "Michael Chen",
+      role: "Junior Telecaller",
+      email: "m.chen@example.com",
+      joiningDate: "Mar 10, 2022",
+      status: "Offline",
+    ),
+    TeamMember(
+      name: "Michael Chen",
+      role: "Junior Telecaller",
+      email: "m.chen@example.com",
+      joiningDate: "Mar 10, 2022",
+      status: "Break",
+    ),
+    TeamMember(
+      name: "Michael Chen",
+      role: "Junior Telecaller",
+      email: "m.chen@example.com",
+      joiningDate: "Mar 10, 2022",
+      status: "Offline",
+    ),
+    TeamMember(
+      name: "Michael Chen",
+      role: "Junior Telecaller",
+      email: "m.chen@example.com",
+      joiningDate: "Mar 10, 2022",
+      status: "Break",
+    ),
+  ];
+
+  final _statcolor = {
+    'Active': Colors.green,
+    'Break': Colors.amber,
+    'Offline': Colors.deepPurple,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return WebLayout(
+      selectedIndex: 2,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 20),
+            _statsRow(),
+            const SizedBox(height: 20),
+            Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.white,borderRadius: BorderRadius.circular(8)),
+              child: _filtersRow(context)),
+            const SizedBox(height: 16),
+            _membersTable(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ================= HEADER =================
+  Widget _header() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Text(
+              "Team Members",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+            ),
+            SizedBox(height: 4),
+            Text(
+              "Manage your telecalling team, view performance, and edit profiles.",
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+        ElevatedButton.icon(
+          onPressed: () {
+            Navigator.pushReplacementNamed(context, '/add-user');
+          },
+          icon: const Icon(Icons.add),
+          label: const Text("Add New Member"),
+        ),
+      ],
+    );
+  }
+
+  // ================= STATS =================
+  Widget _statsRow() {
+    return Wrap(
+      spacing: 16,
+      runSpacing: 16,
+      children: const [
+        _StatCard(
+          title: "Total Members",
+          value: "42",
+          subtitle: "+2 this week",
+        ),
+        _StatCard(title: "Active Now", value: "12", subtitle: "Online"),
+        _StatCard(title: "Avg Performance", value: "88%", subtitle: "+1.2%"),
+      ],
+    );
+  }
+
+  // ================= FILTERS =================
+  Widget _filtersRow(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmall = screenWidth < 900;
+
+    if (isSmall) {
+      /// 🔹 Mobile / small width → STACKED
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [_searchField(), const SizedBox(height: 12), _rightFilters()],
+      );
+    }
+
+    /// 🔹 Desktop / large width → SINGLE ROW
+    return Row(
+      children: [
+        SizedBox(width: 260, child: _searchField()),
+        const Spacer(),
+        _rightFilters(),
+      ],
+    );
+  }
+
+  Widget _searchField() {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: "Search by name, email or role...",
+        prefixIcon: const Icon(Icons.search),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  Widget _rightFilters() {
+    return Row(
+      children: [
+        SizedBox(
+          width: 140,
+          child: _dropdown(_selectedRole, [
+            "All Roles",
+            "Telecaller",
+            "Manager",
+          ], (val) => setState(() => _selectedRole = val)),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 140,
+          child: _dropdown(_selectedStatus, [
+            "Active",
+            "Inactive",
+          ], (val) => setState(() => _selectedStatus = val)),
+        ),
+        const SizedBox(width: 8),
+        IconButton(onPressed: () {}, icon: const Icon(Icons.grid_view)),
+        IconButton(onPressed: () {}, icon: const Icon(Icons.list)),
+      ],
+    );
+  }
+
+  Widget _dropdown(
+    String value,
+    List<String> items,
+    Function(String) onChanged,
+  ) {
+    return SizedBox(
+      height: 40,
+      child: DropdownButtonFormField<String>(
+        value: value,
+        isDense: true,
+        decoration: InputDecoration(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        items: items
+            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+            .toList(),
+        onChanged: (val) {
+          if (val != null) onChanged(val);
+        },
+      ),
+    );
+  }
+
+  // ================= TABLE =================
+  Widget _membersTable() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: DataTable(
+          headingRowColor: WidgetStateProperty.all(
+    Colors.grey.shade100, 
+  ),
+          columns: const [
+            DataColumn(label: Text("Member")),
+            DataColumn(label: Text("Role")),
+            DataColumn(label: Text("Contact")),
+            DataColumn(label: Text("Date of Joining")),
+            DataColumn(label: Text("Status")),
+            DataColumn(label: Text("Action")),
+          ],
+          rows: members.map((member) {
+            return DataRow(
+              cells: [
+                DataCell(Text(member.name)),
+                DataCell(Text(member.role)),
+                DataCell(Text(member.email)),
+                DataCell(Text(member.joiningDate)),
+                DataCell(
+                  Container(
+                    padding: EdgeInsets.all(5),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      color: _statcolor[member.status]!.shade100,
+                    ),
+                    child: Text(
+                      member.status,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _statcolor[member.status],
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ),
+                const DataCell(Icon(Icons.more_vert)),
+              ],
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+// ================= STAT CARD =================
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String subtitle;
+
+  const _StatCard({
+    required this.title,
+    required this.value,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 260,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(color: Colors.grey)),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Colors.green)),
+          ],
+        ),
+      ),
+    );
+  }
+}
