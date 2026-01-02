@@ -267,13 +267,29 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        OutlinedButton(onPressed: () {}, child: const Text("Cancel")),
+        OutlinedButton(onPressed: () {}, 
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+        ),
+        child: const Text("Cancel"),
+        ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: () {},
-          icon: const Icon(Icons.check, size: 18),
-          label: const Text("Add User"),
+          icon: const Icon(Icons.check, size: 18,color:Colors.white),
+          label: const Text("Add User",style: TextStyle(color:Colors.white),),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
+        
       ],
     );
   }

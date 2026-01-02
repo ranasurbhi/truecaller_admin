@@ -15,8 +15,6 @@ class WebLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final sidebarItems = [
       {"icon": Icons.dashboard, "title": "Dashboard", "route": "/"},
-      {"icon": Icons.add_circle_outlined, "title": "Add User", "route": "/add-user"},
-      {"icon": Icons.edit_note, "title": "Add User", "route": "/edit-user"},
       {"icon": Icons.people, "title": "Team Members", "route": "/team-member"},
       {"icon": Icons.campaign, "title": "Campaigns", "route": "/campaign"},
       {"icon": Icons.bar_chart, "title": "Reports", "route": "/"},

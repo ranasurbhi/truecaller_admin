@@ -44,7 +44,7 @@ class _CampaignManagementWebScreenState
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 4,
+      selectedIndex: 2,
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -211,9 +211,12 @@ class _CampaignManagementWebScreenState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                c["name"],
-                style: const TextStyle(fontWeight: FontWeight.w600),
+              GestureDetector(
+                onTap: ()=> Navigator.pushReplacementNamed(context, '/campaign-lead'),
+                child: Text(
+                  c["name"],
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
               ),
               Text(
                 "ID: ${c["id"]}",

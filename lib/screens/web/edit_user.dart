@@ -30,7 +30,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 2,
+      selectedIndex: 1,
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -94,9 +94,27 @@ class _EditUserScreenState extends State<EditUserScreen> {
         ),
         Row(
           children: [
-            OutlinedButton(onPressed: () {}, child: const Text("Cancel")),
+            OutlinedButton(onPressed: () {}, 
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+        ),
+        child: const Text("Cancel"),
+        ),
             const SizedBox(width: 12),
-            ElevatedButton(onPressed: () {}, child: const Text("Save Changes")),
+            ElevatedButton.icon(
+          onPressed: () {},
+          label: const Text("Save Changes",style: TextStyle(color:Colors.white),),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
           ],
         ),
       ],
