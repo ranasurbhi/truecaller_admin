@@ -15,7 +15,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 3,
+      selectedIndex: 2,
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
