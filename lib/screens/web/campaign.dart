@@ -85,10 +85,17 @@ class _CampaignManagementWebScreenState
             ),
           ],
         ),
+        
         ElevatedButton.icon(
           onPressed: () {},
-          icon: const Icon(Icons.add),
-          label: const Text("Create New Campaign"),
+          label: const Text("Create New Campaign",style: TextStyle(color:Colors.white),),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
       ],
     );
