@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/add_user.dart';
+import 'package:truecaller/screens/web/campaign.dart';
+import 'package:truecaller/screens/web/campaign_lead.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
 import 'package:truecaller/screens/web/team_member.dart';
@@ -25,6 +27,9 @@ class MyApp extends StatelessWidget {
             '/add-user': (context) => const AddUserWebScreen(),
             '/team-member': (context) =>  TeamMembersScreen(),
             '/edit-user': (context) =>  EditUserScreen(),
+            '/campaign-lead': (context) =>  CampaignLeadsScreen(),
+            '/campaign': (context) =>  CampaignManagementWebScreen(),
+
 
         },
     );

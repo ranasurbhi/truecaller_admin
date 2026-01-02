@@ -30,7 +30,7 @@ class _EditUserScreenState extends State<EditUserScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 1,
+      selectedIndex: 2,
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24),
