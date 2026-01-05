@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 import 'agent_row.dart';
+import '../models/agent.dart';
 
 class AgentPerformanceTable extends StatelessWidget {
-  const AgentPerformanceTable({super.key});
+  final List<Agent> agents;
+
+  const AgentPerformanceTable({super.key, required this.agents});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        ///  SECTION HEADER
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -41,10 +43,7 @@ class AgentPerformanceTable extends StatelessWidget {
             ),
           ],
         ),
-
         const SizedBox(height: 16),
-
-        ///  TABLE
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -53,36 +52,9 @@ class AgentPerformanceTable extends StatelessWidget {
           ),
           child: Column(
             children: [
-              /// TABLE HEADER 👇
               _tableHeader(),
-
               const Divider(),
-
-              /// TABLE ROWS
-              const AgentRow(
-                name: "Sarah Jenkins",
-                status: "On Call",
-                progress: 0.98,
-                calls: 98,
-                duration: "3m 12s",
-                sales: 12,
-              ),
-              const AgentRow(
-                name: "Mike Ross",
-                status: "Available",
-                progress: 0.84,
-                calls: 84,
-                duration: "2m 45s",
-                sales: 9,
-              ),
-              const AgentRow(
-                name: "Elena Gilbert",
-                status: "Away",
-                progress: 0.76,
-                calls: 76,
-                duration: "2m 30s",
-                sales: 7,
-              ),
+              ...agents.map((agent) => AgentRow(agent: agent)).toList(),
             ],
           ),
         ),
@@ -91,22 +63,21 @@ class AgentPerformanceTable extends StatelessWidget {
   }
 
   Widget _tableHeader() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      children: const [
-        _HeaderCell("AGENT", flex: 3),
-        _HeaderCell("STATUS", flex: 2),
-        _HeaderCell("DAILY TARGET", flex: 3),
-        _HeaderCell("CALLS MADE", flex: 2),
-        _HeaderCell("AVG DURATION", flex: 2),
-        _HeaderCell("SALES", flex: 1),
-        _HeaderCell("ACTION", flex: 1),
-      ],
-    ),
-  );
-}
-
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: const [
+          _HeaderCell("AGENT", flex: 3),
+          _HeaderCell("STATUS", flex: 2),
+          _HeaderCell("DAILY TARGET", flex: 3),
+          _HeaderCell("CALLS MADE", flex: 2),
+          _HeaderCell("AVG DURATION", flex: 2),
+          _HeaderCell("SALES", flex: 1),
+          _HeaderCell("ACTION", flex: 1),
+        ],
+      ),
+    );
+  }
 }
 
 class _HeaderCell extends StatelessWidget {

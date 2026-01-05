@@ -1,48 +1,33 @@
 import 'package:flutter/material.dart';
+import '../models/agent.dart';
 
 class AgentRow extends StatelessWidget {
-  final String name;
-  final String status;
-  final double progress;
-  final int calls;
-  final String duration;
-  final int sales;
+  final Agent agent;
 
-  const AgentRow({
-    super.key,
-    required this.name,
-    required this.status,
-    required this.progress,
-    required this.calls,
-    required this.duration,
-    required this.sales,
-  });
+  const AgentRow({super.key, required this.agent});
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Expanded(flex: 2, child: Text(name)),
+          Expanded(flex: 3, child: Text(agent.name)),
+          Expanded(flex: 2, child: Text(agent.status)),
           Expanded(
-            child: Chip(
-              label: Text(status),
-              backgroundColor:
-                  status == "On Call" ? Colors.green.shade50 : Colors.grey.shade200,
+            flex: 3,
+            child: LinearProgressIndicator(
+              value: agent.totalCalls > 0
+                  ? agent.connected / agent.totalCalls
+                  : 0,
+              backgroundColor: Colors.grey.shade200,
+              color: Colors.blue,
             ),
           ),
-          Expanded(
-            flex: 2,
-            child: LinearProgressIndicator(value: progress),
-          ),
-          Expanded(child: Text("$calls")),
-          Expanded(child: Text(duration)),
-          Expanded(child: Text("$sales")),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: () {},
-          ),
+          Expanded(flex: 2, child: Text(agent.totalCalls.toString())),
+          Expanded(flex: 2, child: Text(agent.avgDurationFormatted)),
+          Expanded(flex: 1, child: Text(agent.connected.toString())),
+          Expanded(flex: 1, child: Icon(Icons.more_vert)),
         ],
       ),
     );
