@@ -4,6 +4,7 @@ import 'package:truecaller/screens/web/campaign.dart';
 import 'package:truecaller/screens/web/campaign_lead.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
+import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 
 void main() {
@@ -29,6 +30,7 @@ class MyApp extends StatelessWidget {
             '/edit-user': (context) =>  EditUserScreen(),
             '/campaign-lead': (context) =>  CampaignLeadsScreen(),
             '/campaign': (context) =>  CampaignManagementWebScreen(),
+            '/activity-log': (context) =>  LeadActivityScreen(),
 
 
         },
