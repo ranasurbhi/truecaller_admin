@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:truecaller/components/button.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class LeadActivityScreen extends StatefulWidget {
@@ -60,7 +61,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 1,
+      selectedIndex: 3,
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: LayoutBuilder(
@@ -239,6 +240,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 onPressed: _postActivity,
                 child: const Text("Post Activity"),
               ),
+              
             ],
           ),
         ],

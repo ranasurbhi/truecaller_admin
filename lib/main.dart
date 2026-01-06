@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/add_user.dart';
 import 'package:truecaller/screens/web/campaign.dart';
 import 'package:truecaller/screens/web/campaign_lead.dart';
+import 'package:truecaller/screens/web/create_template.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
 import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
+import 'package:truecaller/screens/web/template_list.dart';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +33,8 @@ class MyApp extends StatelessWidget {
             '/campaign-lead': (context) =>  CampaignLeadsScreen(),
             '/campaign': (context) =>  CampaignManagementWebScreen(),
             '/activity-log': (context) =>  LeadActivityScreen(),
+            '/msg-template': (context) =>  MessageTemplatesScreen(),
+            '/create-template': (context) =>  CreateWhatsappTemplateScreen(),
 
 
         },
