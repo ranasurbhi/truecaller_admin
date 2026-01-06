@@ -61,7 +61,7 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 2,
+      selectedIndex: 1,
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,8 +72,12 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
             const SizedBox(height: 20),
             Container(
               padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.white,borderRadius: BorderRadius.circular(8)),
-              child: _filtersRow(context)),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: _filtersRow(context),
+            ),
             const SizedBox(height: 16),
             _membersTable(),
           ],
@@ -101,12 +105,20 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
             ),
           ],
         ),
+
         ElevatedButton.icon(
-          onPressed: () {
-            Navigator.pushReplacementNamed(context, '/add-user');
-          },
-          icon: const Icon(Icons.add),
-          label: const Text("Add New Member"),
+          onPressed: () => Navigator.pushReplacementNamed(context, '/add-user'),
+          label: const Text(
+            "Add New Member",
+            style: TextStyle(color: Colors.white),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
       ],
     );
@@ -223,9 +235,7 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: DataTable(
-          headingRowColor: WidgetStateProperty.all(
-    Colors.grey.shade100, 
-  ),
+          headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
           columns: const [
             DataColumn(label: Text("Member")),
             DataColumn(label: Text("Role")),
@@ -237,7 +247,13 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
           rows: members.map((member) {
             return DataRow(
               cells: [
-                DataCell(Text(member.name)),
+                DataCell(
+                  GestureDetector(
+                    child: Text(member.name),
+                    onTap: () =>
+                        Navigator.pushReplacementNamed(context, '/edit-user'),
+                  ),
+                ),
                 DataCell(Text(member.role)),
                 DataCell(Text(member.email)),
                 DataCell(Text(member.joiningDate)),

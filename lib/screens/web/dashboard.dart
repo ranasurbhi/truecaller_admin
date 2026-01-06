@@ -25,13 +25,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      loading = true;
-    });
+    setState(() => loading = true);
 
     try {
       final data = await ApiService.fetchDashboardData();
-
       if (mounted) {
         setState(() {
           summary = ApiService.parseSummary(data);
@@ -41,11 +38,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
     } catch (e) {
       debugPrint("Dashboard error: $e");
-      if (mounted) {
-        setState(() {
-          loading = false;
-        });
-      }
+      if (mounted) setState(() => loading = false);
     }
   }
 
@@ -54,7 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return WebLayout(
       selectedIndex: 0,
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -66,14 +59,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ? _statsRow(context, summary!)
                 : const Center(child: Text('No data available')),
             const SizedBox(height: 24),
-            loading
-                ? const SizedBox()
-                : AgentPerformanceTable(agents: agents),
+            loading ? const SizedBox() : AgentPerformanceTable(agents: agents),
           ],
         ),
       ),
     );
   }
+
+  // ---------------- HEADER ----------------
 
   Widget _header(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -116,8 +109,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _exportButton() {
     return ElevatedButton.icon(
       onPressed: () {},
-      icon: const Icon(Icons.download, size: 18),
-      label: const Text("Export Report"),
+      icon: const Icon(Icons.download, size: 18, color: Colors.white),
+      label: const Text(
+        "Export Report",
+        style: TextStyle(color: Colors.white),
+      ),
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.blue,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -128,11 +124,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // ---------------- STATS ----------------
+
   Widget _statsRow(BuildContext context, CallSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
         int columns = 4;
-
         if (constraints.maxWidth < 1200) columns = 2;
         if (constraints.maxWidth < 700) columns = 1;
 
@@ -190,10 +187,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _statItem(double width, Widget child) {
-    return SizedBox(
-      width: width,
-      child: child,
-    );
+    return SizedBox(width: width, child: child);
   }
 
   String formatDuration(int seconds) {

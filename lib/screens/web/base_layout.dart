@@ -15,12 +15,12 @@ class WebLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     final sidebarItems = [
       {"icon": Icons.dashboard, "title": "Dashboard", "route": "/"},
-      {"icon": Icons.add_circle_outlined, "title": "Add User", "route": "/add-user"},
       {"icon": Icons.people, "title": "Team Members", "route": "/team-member"},
-      {"icon": Icons.campaign, "title": "Campaigns", "route": "/create-campaign"},
-      {"icon": Icons.bar_chart, "title": "Reports", "route": "/"},
+      {"icon": Icons.campaign, "title": "Campaigns", "route": "/campaign"},
+      {"icon": Icons.bar_chart, "title": "Reports", "route": "/activity-log"},
       {"icon": Icons.settings, "title": "Settings", "route": "/"},
     ];
+
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),

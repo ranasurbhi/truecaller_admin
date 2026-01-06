@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-
 import 'package:truecaller/screens/web/add_user.dart';
+import 'package:truecaller/screens/web/campaign.dart';
+import 'package:truecaller/screens/web/campaign_lead.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
+import 'package:truecaller/screens/web/edit_user.dart';
+import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 import 'package:truecaller/screens/web/create_campaign_screen.dart';
 
@@ -20,15 +23,17 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
-       initialRoute: '/',
-        routes: {
-            '/': (context) => const DashboardScreen(),
-            '/add-user': (context) => const AddUserWebScreen(),
-            '/team-member': (context) =>  TeamMembersScreen(),
-          '/create-campaign': (context) => const CreateCampaignScreen(),
-
-        },
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const DashboardScreen(),
+        '/add-user': (context) => const AddUserWebScreen(),
+        '/team-member': (context) => TeamMembersScreen(),
+        '/create-campaign': (context) => const CreateCampaignScreen(),
+        '/edit-user': (context) => EditUserScreen(),
+        '/campaign-lead': (context) => CampaignLeadsScreen(),
+        '/campaign': (context) => CampaignManagementWebScreen(),
+        '/activity-log': (context) => LeadActivityScreen(),
+      },
     );
   }
 }
-
