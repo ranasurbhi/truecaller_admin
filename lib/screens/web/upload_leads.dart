@@ -4,6 +4,7 @@ import 'package:excel/excel.dart' as excel;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'package:truecaller/screens/web/map_column_leads.dart';
 
 class UploadLeadsScreen extends StatefulWidget {
   const UploadLeadsScreen({super.key});
@@ -329,22 +330,33 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   // ================= FOOTER =================
 
   Widget _footerActions() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        OutlinedButton(
-          onPressed: () {},
-          child: const Text("Cancel"),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            setState(() => currentStep = 3);
-          },
-          child: const Text("Next: Map Columns"),
-        ),
-      ],
-    );
-  }
+  return Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      OutlinedButton(
+        onPressed: () {},
+        child: const Text("Cancel"),
+      ),
+      ElevatedButton(
+        onPressed: previewHeaders.isEmpty
+            ? null
+            : () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => MapColumnsScreen(
+                      excelHeaders: previewHeaders,
+                      sampleRow: previewRows.first,
+                    ),
+                  ),
+                );
+              },
+        child: const Text("Next: Map Columns"),
+      ),
+    ],
+  );
+}
+
 
   // ================= SHARED =================
 
