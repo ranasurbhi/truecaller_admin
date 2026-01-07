@@ -103,8 +103,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       children: [
         CircleAvatar(
           radius: 14,
-          backgroundColor:
-              active ? Colors.blue : Colors.grey.shade300,
+          backgroundColor: active ? Colors.blue : Colors.grey.shade300,
           child: Text(
             "$step",
             style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -117,9 +116,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   Widget _stepDivider() {
-    return Expanded(
-      child: Divider(color: Colors.grey.shade300),
-    );
+    return Expanded(child: Divider(color: Colors.grey.shade300));
   }
 
   // ================= UPLOAD =================
@@ -131,8 +128,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       decoration: _cardDecoration(dashed: true),
       child: Column(
         children: [
-          const Icon(Icons.cloud_upload,
-              size: 40, color: Colors.blue),
+          const Icon(Icons.cloud_upload, size: 40, color: Colors.blue),
           const SizedBox(height: 12),
           const Text(
             "Click to upload or drag and drop",
@@ -188,14 +184,12 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     if (rows.isEmpty) return;
 
     setState(() {
-      previewHeaders =
-          rows.first.map((e) => e.toString()).toList();
+      previewHeaders = rows.first.map((e) => e.toString()).toList();
 
       previewRows = rows.skip(1).map((row) {
         final Map<String, String> map = {};
         for (int i = 0; i < previewHeaders.length; i++) {
-          map[previewHeaders[i]] =
-              i < row.length ? row[i].toString() : "";
+          map[previewHeaders[i]] = i < row.length ? row[i].toString() : "";
         }
         return map;
       }).toList();
@@ -216,8 +210,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     final rows = sheet.rows.skip(1).map((row) {
       final Map<String, String> map = {};
       for (int i = 0; i < headers.length; i++) {
-        map[headers[i]] =
-            i < row.length ? row[i]?.value.toString() ?? "" : "";
+        map[headers[i]] = i < row.length ? row[i]?.value.toString() ?? "" : "";
       }
       return map;
     }).toList();
@@ -239,10 +232,11 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
-            Text("File Preview",
-                style: TextStyle(fontWeight: FontWeight.w600)),
-            Text("Displaying first 5 rows",
-                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text("File Preview", style: TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              "Displaying first 5 rows",
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -262,8 +256,10 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
           const Icon(Icons.insert_drive_file, color: Colors.green),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(fileName ?? "",
-                style: const TextStyle(fontWeight: FontWeight.w600)),
+            child: Text(
+              fileName ?? "",
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
           IconButton(
             onPressed: () {
@@ -300,12 +296,14 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: previewHeaders
-            .map((h) => Expanded(
-                  child: Text(
-                    h.toUpperCase(),
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ))
+            .map(
+              (h) => Expanded(
+                child: Text(
+                  h.toUpperCase(),
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -316,12 +314,11 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: previewHeaders
-            .map((h) => Expanded(
-                  child: Text(
-                    row[h] ?? "",
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                ))
+            .map(
+              (h) => Expanded(
+                child: Text(row[h] ?? "", style: const TextStyle(fontSize: 12)),
+              ),
+            )
             .toList(),
       ),
     );
@@ -330,33 +327,30 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   // ================= FOOTER =================
 
   Widget _footerActions() {
-  return Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      OutlinedButton(
-        onPressed: () {},
-        child: const Text("Cancel"),
-      ),
-      ElevatedButton(
-        onPressed: previewHeaders.isEmpty
-            ? null
-            : () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => MapColumnsScreen(
-                      excelHeaders: previewHeaders,
-                      sampleRow: previewRows.first,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        OutlinedButton(onPressed: () {}, child: const Text("Cancel")),
+        ElevatedButton(
+          onPressed: previewHeaders.isEmpty || previewRows.isEmpty
+              ? null
+              : () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MapColumnsScreen(
+                        excelHeaders: previewHeaders,
+                        sampleRow: previewRows.first,
+                        previewRows: previewRows,
+                      ),
                     ),
-                  ),
-                );
-              },
-        child: const Text("Next: Map Columns"),
-      ),
-    ],
-  );
-}
-
+                  );
+                },
+          child: const Text("Next: Map Columns"),
+        ),
+      ],
+    );
+  }
 
   // ================= SHARED =================
 
@@ -364,10 +358,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     return BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(
-        color: Colors.grey.shade300,
-        width: 1,
-      ),
+      border: Border.all(color: Colors.grey.shade300, width: 1),
     );
   }
 }

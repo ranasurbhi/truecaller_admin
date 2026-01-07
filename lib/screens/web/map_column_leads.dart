@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'package:truecaller/screens/web/imported_leads.dart';
 
 enum ColumnStatus { matched, unmapped, skipped }
 
@@ -8,13 +9,14 @@ class MapColumnsScreen extends StatefulWidget {
     super.key,
     required this.excelHeaders,
     required this.sampleRow,
+    required this.previewRows, 
   });
 
-  /// Headers from uploaded Excel / CSV
   final List<String> excelHeaders;
-
-  /// One sample row (for preview text)
   final Map<String, String> sampleRow;
+
+  /// ALL parsed rows from Excel
+  final List<Map<String, String>> previewRows;
 
   @override
   State<MapColumnsScreen> createState() => _MapColumnsScreenState();
@@ -280,21 +282,37 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
   }
 
   void _confirmMapping() {
-    final payload = {
-      "mapping": columnMapping
-        ..removeWhere((k, v) => v == null),
-      "skipped_columns": columnStatus.entries
-          .where((e) => e.value == ColumnStatus.skipped)
-          .map((e) => e.key)
-          .toList(),
-    };
+  final importedLeads = buildImportedLeads();
 
-    debugPrint("FINAL MAPPING PAYLOAD => $payload");
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => ImportedLeadsWebScreen(
+        importedLeads: importedLeads,
+      ),
+    ),
+  );
+}
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Mapping confirmed")),
-    );
-  }
+List<Map<String, dynamic>> buildImportedLeads() {
+  return widget.previewRows.map((row) {
+    final Map<String, dynamic> lead = {};
+
+    columnMapping.forEach((excelHeader, crmField) {
+      if (crmField != null) {
+        lead[crmField] = row[excelHeader];
+      }
+    });
+
+    // default system fields
+    lead["status"] = "New";
+    lead["importDate"] =
+        DateTime.now().toIso8601String().split("T").first;
+
+    return lead;
+  }).toList();
+}
+
 
   // ================= SHARED =================
 
