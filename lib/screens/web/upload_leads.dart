@@ -125,6 +125,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
 
   Widget _uploadCard() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(32),
       decoration: _cardDecoration(dashed: true),
       child: Column(
