@@ -8,6 +8,7 @@ import 'package:truecaller/screens/web/edit_user.dart';
 import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 import 'package:truecaller/screens/web/template_list.dart';
+import 'package:truecaller/screens/web/upload_leads.dart';
 
 void main() {
   runApp(const MyApp());
@@ -35,6 +36,7 @@ class MyApp extends StatelessWidget {
             '/activity-log': (context) =>  LeadActivityScreen(),
             '/msg-template': (context) =>  MessageTemplatesScreen(),
             '/create-template': (context) =>  CreateWhatsappTemplateScreen(),
+            '/upload-leads': (context) =>  UploadLeadsScreen(),
 
 
         },

@@ -89,7 +89,7 @@ class _CreateWhatsappTemplateScreenState
           children: [
             Text(
               "Create New WhatsApp Template",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             ),
             SizedBox(height: 4),
             Text(

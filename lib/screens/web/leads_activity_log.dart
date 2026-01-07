@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:truecaller/components/button.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class LeadActivityScreen extends StatefulWidget {
   const LeadActivityScreen({super.key});
 
   @override
-  State<LeadActivityScreen> createState() =>
-      _LeadActivityScreenState();
+  State<LeadActivityScreen> createState() => _LeadActivityScreenState();
 }
 
 class _LeadActivityScreenState extends State<LeadActivityScreen> {
@@ -99,10 +97,16 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         children: [
           CircleAvatar(
             radius: 36,
-            child: Text(lead["name"][0]),
+            child: Text(
+              lead["name"][0],
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
           const SizedBox(height: 10),
-          Text(lead["name"], style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(
+            lead["name"],
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 4),
           Text(
             lead["role"],
@@ -121,17 +125,47 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
           const SizedBox(height: 16),
           _actionButtons(),
           const Divider(height: 30),
-          _infoRow(Icons.phone, lead["phone"]),
-          _infoRow(Icons.email, lead["email"]),
-          _infoRow(Icons.location_on, lead["location"]),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Contact Info",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10,),
+              _infoRow(Icons.phone, lead["phone"]),
+              _infoRow(Icons.email, lead["email"]),
+              _infoRow(Icons.location_on, lead["location"]),
+            ],
+          ),
+
           const Divider(height: 30),
-          Wrap(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Tags",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: 10,),
+              Wrap(
             spacing: 6,
             runSpacing: 6,
             children: lead["tags"]
                 .map<Widget>((t) => Chip(label: Text(t)))
                 .toList(),
           ),
+            ],
+          ),
+          
         ],
       ),
     );
@@ -185,11 +219,13 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: const [
-            Text("Activity Log",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            Text(
+              "Activity Log",
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+            ),
             Text(
               "Track all interactions and system updates for this lead.",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
           ],
         ),
@@ -200,8 +236,9 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
               hintText: "Search activity log...",
               prefixIcon: const Icon(Icons.search),
               isDense: true,
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
@@ -240,7 +277,6 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 onPressed: _postActivity,
                 child: const Text("Post Activity"),
               ),
-              
             ],
           ),
         ],
@@ -320,7 +356,8 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
   }
 
   Map<String, List<Map<String, dynamic>>> _groupByDate(
-      List<Map<String, dynamic>> list) {
+    List<Map<String, dynamic>> list,
+  ) {
     final Map<String, List<Map<String, dynamic>>> map = {};
     for (var a in list) {
       map.putIfAbsent(a["date"], () => []);
@@ -343,8 +380,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   entry.key,
-                  style:
-                      const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               ...entry.value.map(_activityStep).toList(),
@@ -368,17 +404,13 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 a["type"] == "call"
                     ? Icons.call
                     : a["type"] == "note"
-                        ? Icons.edit
-                        : Icons.sync,
+                    ? Icons.edit
+                    : Icons.sync,
                 size: 14,
                 color: Colors.blue,
               ),
             ),
-            Container(
-              width: 2,
-              height: 60,
-              color: Colors.grey.shade300,
-            ),
+            Container(width: 2, height: 60, color: Colors.grey.shade300),
           ],
         ),
         const SizedBox(width: 12),
@@ -391,9 +423,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  a["type"] == "status"
-                      ? "Status Change"
-                      : a["title"],
+                  a["type"] == "status" ? "Status Change" : a["title"],
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
@@ -405,8 +435,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 const SizedBox(height: 6),
                 Text(
                   a["time"],
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.grey),
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],
             ),
@@ -436,9 +465,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         children: [
           Icon(icon, size: 16, color: Colors.grey),
           const SizedBox(width: 8),
-          Expanded(
-            child: Text(text, style: const TextStyle(fontSize: 12)),
-          ),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
