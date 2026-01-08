@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/add_user.dart';
 import 'package:truecaller/screens/web/campaign.dart';
 import 'package:truecaller/screens/web/campaign_lead.dart';
+import 'package:truecaller/screens/web/create_template.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
 import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 import 'package:truecaller/screens/web/create_campaign_screen.dart';
+import 'package:truecaller/screens/web/template_list.dart';
+import 'package:truecaller/screens/web/upload_leads.dart';
 
 void main() {
   runApp(const MyApp());
@@ -36,7 +39,6 @@ class MyApp extends StatelessWidget {
           );
         }
 
-        // Other routes
         switch (settings.name) {
           case '/':
             return MaterialPageRoute(
@@ -54,8 +56,15 @@ class MyApp extends StatelessWidget {
           case '/campaign':
             return MaterialPageRoute(
                 builder: (context) => const CampaignManagementWebScreen());
-          //case '/activity-log':
-           // return MaterialPageRoute(builder: (context) => LeadActivityScreen());
+          case '/msg-template':
+            return MaterialPageRoute(
+                builder: (context) => MessageTemplatesScreen());
+          case '/create-template':
+            return MaterialPageRoute(
+                builder: (context) => CreateWhatsappTemplateScreen());
+          case '/upload-leads':
+            return MaterialPageRoute(
+                builder: (context) => UploadLeadsScreen());
           default:
             return null;
         }

@@ -17,8 +17,9 @@ class WebLayout extends StatelessWidget {
       {"icon": Icons.dashboard, "title": "Dashboard", "route": "/"},
       {"icon": Icons.people, "title": "Team Members", "route": "/team-member"},
       {"icon": Icons.campaign, "title": "Campaigns", "route": "/campaign"},
-      {"icon": Icons.bar_chart, "title": "Reports", "route": "/activity-log"},
-      {"icon": Icons.settings, "title": "Settings", "route": "/"},
+      {"icon": Icons.bar_chart, "title": "Activity Log", "route": "/activity-log"},
+      {"icon": Icons.list_alt_outlined, "title": "Templates", "route": "/msg-template"},
+      {"icon": Icons.upload_file, "title": "Upload Leads", "route": "/upload-leads"},
     ];
 
 
