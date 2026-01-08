@@ -24,15 +24,41 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
       initialRoute: '/',
-      routes: {
-        '/': (context) => const DashboardScreen(),
-        '/add-user': (context) => const AddUserWebScreen(),
-        '/team-member': (context) => TeamMembersScreen(),
-        '/create-campaign': (context) => const CreateCampaignScreen(),
-        '/edit-user': (context) => EditUserScreen(),
-        '/campaign-lead': (context) => CampaignLeadsScreen(),
-        '/campaign': (context) => CampaignManagementWebScreen(),
-        '/activity-log': (context) => LeadActivityScreen(),
+      onGenerateRoute: (settings) {
+        // Campaign Leads screen with required parameters
+        if (settings.name == '/campaign-lead') {
+          final args = settings.arguments as Map<String, dynamic>;
+          return MaterialPageRoute(
+            builder: (context) => CampaignLeadsScreen(
+              campaignId: args['campaignId'],
+              campaignName: args['campaignName'],
+            ),
+          );
+        }
+
+        // Other routes
+        switch (settings.name) {
+          case '/':
+            return MaterialPageRoute(
+                builder: (context) => const DashboardScreen());
+          case '/add-user':
+            return MaterialPageRoute(
+                builder: (context) => const AddUserWebScreen());
+          case '/team-member':
+            return MaterialPageRoute(builder: (context) => TeamMembersScreen());
+          case '/create-campaign':
+            return MaterialPageRoute(
+                builder: (context) => const CreateCampaignScreen());
+          case '/edit-user':
+            return MaterialPageRoute(builder: (context) => EditUserScreen());
+          case '/campaign':
+            return MaterialPageRoute(
+                builder: (context) => const CampaignManagementWebScreen());
+          //case '/activity-log':
+           // return MaterialPageRoute(builder: (context) => LeadActivityScreen());
+          default:
+            return null;
+        }
       },
     );
   }

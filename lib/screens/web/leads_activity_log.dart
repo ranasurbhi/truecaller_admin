@@ -1,61 +1,136 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class LeadActivityScreen extends StatefulWidget {
-  const LeadActivityScreen({super.key});
+  final int leadId;
+
+  const LeadActivityScreen({super.key, required this.leadId});
 
   @override
-  State<LeadActivityScreen> createState() =>
-      _LeadActivityScreenState();
+  State<LeadActivityScreen> createState() => _LeadActivityScreenState();
 }
 
 class _LeadActivityScreenState extends State<LeadActivityScreen> {
-  // ================= STATE =================
+  final String baseUrl = "http://192.168.0.105:3000";
+
+  bool loading = true;
+  String? error;
 
   String selectedTab = "All";
   final TextEditingController activityController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
 
-  final Map<String, dynamic> lead = {
-    "name": "Sarah Jenkins",
-    "role": "VP of Operations at TechSolutions Inc.",
-    "avatar": "",
-    "score": 85,
-    "status": "Contacted",
-    "phone": "+1 (555) 123-4567",
-    "email": "sarah.j@techsolutions.inc",
-    "location": "San Francisco, CA",
-    "tags": ["Enterprise", "Q4 Priority", "Tech"],
-  };
+  Map<String, dynamic>? lead;
+  List<Map<String, dynamic>> activities = [];
 
-  final List<Map<String, dynamic>> activities = [
-    {
-      "type": "call",
-      "title": "Outbound Call",
-      "user": "Mike Ross",
-      "time": "2 hours ago",
-      "date": "Today",
-      "description":
-          "Tried calling Sarah regarding the new proposal. No answer, left a voicemail asking for a callback tomorrow morning.",
-    },
-    {
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    try {
+      await Future.wait([
+        _fetchLead(),
+        _fetchActivities(),
+      ]);
+      setState(() => loading = false);
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        loading = false;
+      });
+    }
+  }
+
+  // ================= LEAD =================
+
+  Future<void> _fetchLead() async {
+    final res = await http.get(Uri.parse("$baseUrl/leads/${widget.leadId}"));
+    if (res.statusCode != 200) throw Exception("Failed to load lead");
+
+    final decoded = jsonDecode(res.body);
+    lead = decoded['data'];
+  }
+
+  // ================= ACTIVITIES =================
+
+  Future<void> _fetchActivities() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/lead_activities?lead_id=${widget.leadId}"),
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception("Failed to load activities");
+    }
+
+    final decoded = jsonDecode(res.body);
+    final List data = decoded['data'];
+
+    activities = data.map<Map<String, dynamic>>((a) {
+      final createdAt = DateTime.parse(a['created_at']);
+      return {
+        "id": a['id'],
+        "type": a['type'] ?? 'note',
+        "title": a['title'] ?? 'Activity',
+        "description": a['description'] ?? '',
+        "user": a['user'] ?? 'System',
+        "time": DateFormat('h:mm a').format(createdAt),
+        "date": _formatDate(createdAt),
+        "created_at": createdAt,
+        "from": a['from'] ?? '',
+        "to": a['to'] ?? '',
+      };
+    }).toList();
+
+    // Sort by date descending
+    activities.sort((a, b) => b['created_at'].compareTo(a['created_at']));
+  }
+
+  Future<void> _postActivity() async {
+    if (activityController.text.trim().isEmpty) return;
+
+    final body = {
+      "lead_id": widget.leadId,
       "type": "note",
       "title": "Note Added",
-      "user": "Jessica Pearson",
-      "time": "4:30 PM",
-      "date": "Today",
-      "description":
-          "Client is extremely interested in the Enterprise plan but needs final budget approval from the CTO.",
-    },
-    {
-      "type": "status",
-      "from": "New Lead",
-      "to": "Contacted",
-      "time": "Oct 12, 4:05 PM",
-      "date": "Yesterday",
-    },
-  ];
+      "description": activityController.text.trim(),
+      "user": "You",
+    };
 
-  // ================= BUILD =================
+    final response = await http.post(
+      Uri.parse("$baseUrl/lead_activities"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 201) {
+      activityController.clear();
+      await _fetchActivities();
+      setState(() {});
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to post activity')),
+      );
+    }
+  }
+
+  // ================= DATE =================
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    if (DateUtils.isSameDay(date, now)) return "Today";
+    if (DateUtils.isSameDay(date, now.subtract(const Duration(days: 1)))) {
+      return "Yesterday";
+    }
+    return DateFormat('MMM dd, yyyy').format(date);
+  }
+
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
@@ -63,7 +138,11 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
       selectedIndex: 1,
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: LayoutBuilder(
+        child: loading
+            ? const Center(child: CircularProgressIndicator())
+            : error != null
+            ? Center(child: Text(error!))
+            : LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth > 1000) {
               return Row(
@@ -91,6 +170,8 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
   // ================= LEFT PROFILE =================
 
   Widget _profileCard() {
+    if (lead == null) return const SizedBox();
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: _cardDecoration(),
@@ -98,13 +179,13 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         children: [
           CircleAvatar(
             radius: 36,
-            child: Text(lead["name"][0]),
+            child: Text(lead!['name'][0]),
           ),
           const SizedBox(height: 10),
-          Text(lead["name"], style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(lead!['name'], style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
           Text(
-            lead["role"],
+            lead!['role'] ?? '',
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
@@ -112,25 +193,26 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _pill("Score: ${lead["score"]}"),
+              _pill("Score: ${lead!['score'] ?? 'N/A'}"),
               const SizedBox(width: 6),
-              _pill(lead["status"]),
+              _pill(lead!['status'] ?? 'N/A'),
             ],
           ),
           const SizedBox(height: 16),
           _actionButtons(),
           const Divider(height: 30),
-          _infoRow(Icons.phone, lead["phone"]),
-          _infoRow(Icons.email, lead["email"]),
-          _infoRow(Icons.location_on, lead["location"]),
+          _infoRow(Icons.phone, lead!['phone'] ?? ''),
+          _infoRow(Icons.email, lead!['email'] ?? ''),
+          _infoRow(Icons.location_on, lead!['location'] ?? ''),
           const Divider(height: 30),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: lead["tags"]
-                .map<Widget>((t) => Chip(label: Text(t)))
-                .toList(),
-          ),
+          if (lead!['tags'] != null && (lead!['tags'] as List).isNotEmpty)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: (lead!['tags'] as List)
+                  .map<Widget>((t) => Chip(label: Text(t.toString())))
+                  .toList(),
+            ),
         ],
       ),
     );
@@ -141,7 +223,12 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              // Handle call action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Call functionality would go here')),
+              );
+            },
             icon: const Icon(Icons.call, size: 16),
             label: const Text("Call"),
           ),
@@ -149,7 +236,12 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: () {
+              // Handle email action
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Email functionality would go here')),
+              );
+            },
             icon: const Icon(Icons.email, size: 16),
             label: const Text("Email"),
           ),
@@ -195,13 +287,16 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         SizedBox(
           width: 220,
           child: TextField(
+            controller: searchController,
             decoration: InputDecoration(
               hintText: "Search activity log...",
               prefixIcon: const Icon(Icons.search),
               isDense: true,
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             ),
+            onChanged: (value) {
+              setState(() {});
+            },
           ),
         ),
       ],
@@ -246,22 +341,6 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
     );
   }
 
-  void _postActivity() {
-    if (activityController.text.trim().isEmpty) return;
-
-    setState(() {
-      activities.insert(0, {
-        "type": "note",
-        "title": "Note Added",
-        "user": "You",
-        "time": "Just now",
-        "date": "Today",
-        "description": activityController.text.trim(),
-      });
-      activityController.clear();
-    });
-  }
-
   // ================= TABS =================
 
   Widget _activityTabs() {
@@ -296,25 +375,33 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
     );
   }
 
-  // ================= TIMELINE =================
+  // ================= FILTERED ACTIVITIES =================
 
   List<Map<String, dynamic>> get _filteredActivities {
-    if (selectedTab == "All") return activities;
+    List<Map<String, dynamic>> filtered = activities;
 
-    return activities.where((a) {
-      switch (selectedTab) {
-        case "Calls":
-          return a["type"] == "call";
-        case "Emails":
-          return a["type"] == "email";
-        case "Notes":
-          return a["type"] == "note";
-        case "System":
-          return a["type"] == "status";
-        default:
-          return true;
-      }
-    }).toList();
+    // Apply tab filter
+    if (selectedTab == "Calls") {
+      filtered = filtered.where((a) => a["type"] == "call").toList();
+    } else if (selectedTab == "Emails") {
+      filtered = filtered.where((a) => a["type"] == "email").toList();
+    } else if (selectedTab == "Notes") {
+      filtered = filtered.where((a) => a["type"] == "note").toList();
+    } else if (selectedTab == "System") {
+      filtered = filtered.where((a) => a["type"] == "status").toList();
+    }
+
+    // Apply search filter
+    if (searchController.text.isNotEmpty) {
+      final searchTerm = searchController.text.toLowerCase();
+      filtered = filtered.where((a) {
+        return (a["title"]?.toString().toLowerCase().contains(searchTerm) ?? false) ||
+            (a["description"]?.toString().toLowerCase().contains(searchTerm) ?? false) ||
+            (a["user"]?.toString().toLowerCase().contains(searchTerm) ?? false);
+      }).toList();
+    }
+
+    return filtered;
   }
 
   Map<String, List<Map<String, dynamic>>> _groupByDate(
@@ -326,6 +413,8 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
     }
     return map;
   }
+
+  // ================= TIMELINE =================
 
   Widget _activityTimeline() {
     final grouped = _groupByDate(_filteredActivities);
@@ -341,8 +430,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   entry.key,
-                  style:
-                      const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ),
               ...entry.value.map(_activityStep).toList(),
@@ -361,15 +449,11 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: Colors.blue.shade50,
+              backgroundColor: _getActivityColor(a["type"]).withOpacity(0.1),
               child: Icon(
-                a["type"] == "call"
-                    ? Icons.call
-                    : a["type"] == "note"
-                        ? Icons.edit
-                        : Icons.sync,
+                _getActivityIcon(a["type"]),
                 size: 14,
-                color: Colors.blue,
+                color: _getActivityColor(a["type"]),
               ),
             ),
             Container(
@@ -388,23 +472,61 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  a["type"] == "status"
-                      ? "Status Change"
-                      : a["title"],
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      a["type"] == "status" ? "Status Change" : a["title"],
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getActivityColor(a["type"]).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        a["type"].toString().toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: _getActivityColor(a["type"]),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  a["description"] ??
-                      "Status changed from ${a["from"]} to ${a["to"]}",
+                  a["description"]?.isNotEmpty == true
+                      ? a["description"]
+                      : a["type"] == "status"
+                      ? "Status changed from ${a["from"]} to ${a["to"]}"
+                      : "No description",
                   style: const TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  a["time"],
-                  style: const TextStyle(
-                      fontSize: 11, color: Colors.grey),
+                Row(
+                  children: [
+                    Text(
+                      a["time"],
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      a["user"],
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -412,6 +534,38 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         ),
       ],
     );
+  }
+
+  // ================= HELPER FUNCTIONS =================
+
+  Color _getActivityColor(String type) {
+    switch (type) {
+      case 'call':
+        return Colors.green;
+      case 'email':
+        return Colors.blue;
+      case 'note':
+        return Colors.orange;
+      case 'status':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  IconData _getActivityIcon(String type) {
+    switch (type) {
+      case 'call':
+        return Icons.call;
+      case 'email':
+        return Icons.email;
+      case 'note':
+        return Icons.edit;
+      case 'status':
+        return Icons.sync;
+      default:
+        return Icons.info;
+    }
   }
 
   // ================= SHARED =================
