@@ -20,6 +20,8 @@ class WebLayout extends StatelessWidget {
       {"icon": Icons.bar_chart, "title": "Activity Log", "route": "/activity-log"},
       {"icon": Icons.list_alt_outlined, "title": "Templates", "route": "/msg-template"},
       {"icon": Icons.upload_file, "title": "Upload Leads", "route": "/upload-leads"},
+      {"icon": Icons.upload_file, "title": "Agent performace", "route": "/agent-performance"},
+
     ];
 
     return Scaffold(
