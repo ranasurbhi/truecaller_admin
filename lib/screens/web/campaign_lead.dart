@@ -1,16 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'dart:convert';
+import 'dart:html' as html;
 
 class CampaignLeadsScreen extends StatefulWidget {
   const CampaignLeadsScreen({super.key});
 
   @override
-  State<CampaignLeadsScreen> createState() =>
-      _CampaignLeadsScreenState();
+  State<CampaignLeadsScreen> createState() => _CampaignLeadsScreenState();
 }
 
 class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   final List<Lead> leads = demoLeads;
+  void _exportLeads() {
+    String csv = "Name,Company,Phone,Email,Status,Telecaller,Last Activity\n";
+
+    for (final l in leads) {
+      csv +=
+          "${l.name},${l.company},${l.phone},${l.email},${l.status},${l.telecaller},${l.lastActivity}\n";
+    }
+
+    final bytes = utf8.encode(csv);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "campaign_leads.csv")
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+  }
+
+  void _importLeads() {
+    final uploadInput = html.FileUploadInputElement()..accept = '.csv';
+    uploadInput.click();
+
+    uploadInput.onChange.listen((event) {
+      final file = uploadInput.files?.first;
+      if (file == null) return;
+
+      final reader = html.FileReader();
+      reader.readAsText(file);
+
+      reader.onLoadEnd.listen((event) {
+        final content = reader.result as String;
+        final lines = const LineSplitter().convert(content);
+
+        // Skip header
+        final newLeads = lines.skip(1).map((line) {
+          final values = line.split(',');
+
+          return Lead(
+            name: values[0],
+            company: values[1],
+            phone: values[2],
+            email: values[3],
+            status: values[4],
+            telecaller: values[5],
+            lastActivity: values[6],
+          );
+        }).toList();
+
+        setState(() {
+          leads.addAll(newLeads);
+        });
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +120,11 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: _importLeads,
               icon: const Icon(Icons.upload_file),
               label: const Text("Import CSV"),
             ),
+
             const SizedBox(width: 12),
             ElevatedButton.icon(
               onPressed: () {},
@@ -127,8 +184,9 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
               hintText: "Search lead by name, phone or email...",
               prefixIcon: const Icon(Icons.search),
               isDense: true,
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
@@ -138,7 +196,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         _dropdownButton("Telecaller: All"),
         const SizedBox(width: 12),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: _exportLeads,
           icon: const Icon(Icons.download),
           label: const Text("Export List"),
         ),
@@ -196,9 +254,14 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(l.company,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  l.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                Text(
+                  l.company,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
@@ -208,23 +271,16 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l.phone),
-                Text(l.email,
-                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                Text(
+                  l.email,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ),
-          Expanded(
-            flex: 2,
-            child: _statusChip(l.status),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(l.telecaller),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(l.lastActivity),
-          ),
+          Expanded(flex: 2, child: _statusChip(l.status)),
+          Expanded(flex: 2, child: Text(l.telecaller)),
+          Expanded(flex: 2, child: Text(l.lastActivity)),
         ],
       ),
     );

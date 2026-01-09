@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
       ),
        initialRoute: '/login',
         routes: {
-            '/': (context) => const DashboardScreen(),
+            '/': (context) =>  DashboardScreen(),
             '/login': (context) => const LoginWebScreen(),
             '/add-user': (context) => const AddUserWebScreen(),
             '/team-member': (context) =>  TeamMembersScreen(),

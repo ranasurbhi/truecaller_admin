@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'dart:convert';
+import 'dart:html' as html;
 
 class CampaignManagementWebScreen extends StatefulWidget {
   const CampaignManagementWebScreen({super.key});
@@ -12,34 +14,56 @@ class CampaignManagementWebScreen extends StatefulWidget {
 class _CampaignManagementWebScreenState
     extends State<CampaignManagementWebScreen> {
   final List<Map<String, dynamic>> campaigns = [
-  {
-    "name": "Q4 Renewal Drive",
-    "id": "CMP-2023-001",
-    "status": "Active",
-    "duration": "Oct 1 - Dec 31\n32 days left",
-    "progress": 0.68,
-    "performance": 18.2,
-    "assignedTeam": [
-      {"name": "Jane", "avatar": ""},
-      {"name": "Mark", "avatar": ""},
-      {"name": "Alex", "avatar": ""},
-      {"name": "Ryan", "avatar": ""},
-    ],
-  },
-  {
-    "name": "Flash Sale Outreach",
-    "id": "CMP-2023-014",
-    "status": "Paused",
-    "duration": "Nov 10 - Nov 15\nHold",
-    "progress": 0.45,
-    "performance": 12.4,
-    "assignedTeam": [
-      {"name": "Jane", "avatar": ""},
-      {"name": "Steve", "avatar": ""},
-    ],
-  },
-];
+    {
+      "name": "Q4 Renewal Drive",
+      "id": "CMP-2023-001",
+      "status": "Active",
+      "duration": "Oct 1 - Dec 31\n32 days left",
+      "progress": 0.68,
+      "performance": 18.2,
+      "assignedTeam": [
+        {"name": "Jane", "avatar": ""},
+        {"name": "Mark", "avatar": ""},
+        {"name": "Alex", "avatar": ""},
+        {"name": "Ryan", "avatar": ""},
+      ],
+    },
+    {
+      "name": "Flash Sale Outreach",
+      "id": "CMP-2023-014",
+      "status": "Paused",
+      "duration": "Nov 10 - Nov 15\nHold",
+      "progress": 0.45,
+      "performance": 12.4,
+      "assignedTeam": [
+        {"name": "Jane", "avatar": ""},
+        {"name": "Steve", "avatar": ""},
+      ],
+    },
+  ];
+  void _exportCampaigns() {
+    String csv =
+        "Campaign Name,Campaign ID,Status,Duration,Assigned Team,Progress %,Performance %\n";
 
+    for (final c in campaigns) {
+      final teamNames = (c["assignedTeam"] as List)
+          .map((m) => m["name"])
+          .join(" | ");
+
+      csv +=
+          "${c['name']},${c['id']},${c['status']},${c['duration'].replaceAll('\n', ' ')},$teamNames,${(c['progress'] * 100).toInt()}%,${c['performance']}%\n";
+    }
+
+    final bytes = utf8.encode(csv);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "campaign_report.csv")
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,10 +109,13 @@ class _CampaignManagementWebScreenState
             ),
           ],
         ),
-        
+
         ElevatedButton.icon(
           onPressed: () {},
-          label: const Text("Create New Campaign",style: TextStyle(color:Colors.white),),
+          label: const Text(
+            "Create New Campaign",
+            style: TextStyle(color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -148,8 +175,9 @@ class _CampaignManagementWebScreenState
               hintText: "Search by campaign name or ID...",
               prefixIcon: const Icon(Icons.search),
               isDense: true,
-              border:
-                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ),
@@ -159,7 +187,7 @@ class _CampaignManagementWebScreenState
         _filterButton("This Month"),
         const SizedBox(width: 12),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: _exportCampaigns,
           icon: const Icon(Icons.download),
           label: const Text("Export"),
         ),
@@ -209,53 +237,51 @@ class _CampaignManagementWebScreenState
   }
 
   Widget _tableRow(Map<String, dynamic> c) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-    child: Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: ()=> Navigator.pushReplacementNamed(context, '/campaign-lead'),
-                child: Text(
-                  c["name"],
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () =>
+                      Navigator.pushReplacementNamed(context, '/campaign-lead'),
+                  child: Text(
+                    c["name"],
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-              Text(
-                "ID: ${c["id"]}",
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-            ],
+                Text(
+                  "ID: ${c["id"]}",
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
           ),
-        ),
-        Expanded(flex: 2, child: _statusChip(c["status"])),
-        Expanded(
-          flex: 2,
-          child: Text(
-            c["duration"],
-            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          Expanded(flex: 2, child: _statusChip(c["status"])),
+          Expanded(
+            flex: 2,
+            child: Text(
+              c["duration"],
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
-        ),
-        Expanded(
-          flex: 2,
-          child: assignedTeamAvatars(c["assignedTeam"]),
-        ),
-        Expanded(flex: 2, child: _progressBar(c["progress"])),
-        Expanded(
-          flex: 2,
-          child: Text(
-            "${c["performance"]}%",
-            style: const TextStyle(fontWeight: FontWeight.w600),
+          Expanded(flex: 2, child: assignedTeamAvatars(c["assignedTeam"])),
+          Expanded(flex: 2, child: _progressBar(c["progress"])),
+          Expanded(
+            flex: 2,
+            child: Text(
+              "${c["performance"]}%",
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   Widget _statusChip(String status) {
     Color color;
@@ -291,61 +317,63 @@ class _CampaignManagementWebScreenState
           color: Colors.blue,
         ),
         const SizedBox(height: 4),
-        Text("${(value * 100).toInt()}%",
-            style: const TextStyle(fontSize: 12)),
+        Text("${(value * 100).toInt()}%", style: const TextStyle(fontSize: 12)),
       ],
     );
   }
+
   Widget assignedTeamAvatars(List<Map<String, dynamic>> team) {
-  const double avatarSize = 28;
-  const double overlap = 18;
+    const double avatarSize = 28;
+    const double overlap = 18;
 
-  final int visibleCount = team.length > 3 ? 3 : team.length;
-  final int remaining = team.length - visibleCount;
+    final int visibleCount = team.length > 3 ? 3 : team.length;
+    final int remaining = team.length - visibleCount;
 
-  return SizedBox(
-    height: avatarSize,
-    width: avatarSize +
-        (visibleCount - 1) * overlap +
-        (remaining > 0 ? overlap : 0),
-    child: Stack(
-      children: [
-        for (int i = 0; i < visibleCount; i++)
-          Positioned(
-            left: i * overlap,
-            child: CircleAvatar(
-              radius: avatarSize / 2,
-              backgroundColor: Colors.grey.shade200,
-              backgroundImage: team[i]["avatar"] != null &&
-                      team[i]["avatar"].toString().isNotEmpty
-                  ? NetworkImage(team[i]["avatar"])
-                  : null,
-              child: (team[i]["avatar"] == null ||
-                      team[i]["avatar"].toString().isEmpty)
-                  ? Text(
-                      team[i]["name"][0],
-                      style: const TextStyle(fontSize: 12),
-                    )
-                  : null,
-            ),
-          ),
-        if (remaining > 0)
-          Positioned(
-            left: visibleCount * overlap,
-            child: CircleAvatar(
-              radius: avatarSize / 2,
-              backgroundColor: Colors.grey.shade300,
-              child: Text(
-                "+$remaining",
-                style: const TextStyle(fontSize: 10),
+    return SizedBox(
+      height: avatarSize,
+      width:
+          avatarSize +
+          (visibleCount - 1) * overlap +
+          (remaining > 0 ? overlap : 0),
+      child: Stack(
+        children: [
+          for (int i = 0; i < visibleCount; i++)
+            Positioned(
+              left: i * overlap,
+              child: CircleAvatar(
+                radius: avatarSize / 2,
+                backgroundColor: Colors.grey.shade200,
+                backgroundImage:
+                    team[i]["avatar"] != null &&
+                        team[i]["avatar"].toString().isNotEmpty
+                    ? NetworkImage(team[i]["avatar"])
+                    : null,
+                child:
+                    (team[i]["avatar"] == null ||
+                        team[i]["avatar"].toString().isEmpty)
+                    ? Text(
+                        team[i]["name"][0],
+                        style: const TextStyle(fontSize: 12),
+                      )
+                    : null,
               ),
             ),
-          ),
-      ],
-    ),
-  );
-}
-
+          if (remaining > 0)
+            Positioned(
+              left: visibleCount * overlap,
+              child: CircleAvatar(
+                radius: avatarSize / 2,
+                backgroundColor: Colors.grey.shade300,
+                child: Text(
+                  "+$remaining",
+                  style: const TextStyle(fontSize: 10),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _pagination() {
     return Padding(
@@ -382,6 +410,3 @@ class _CampaignManagementWebScreenState
     );
   }
 }
-
-
-

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'dart:convert';
+import 'dart:html' as html;
 
 class AgentPerformanceScreen extends StatelessWidget {
   const AgentPerformanceScreen({super.key});
@@ -58,6 +60,60 @@ class AgentPerformanceScreen extends StatelessWidget {
       "status": "Callback",
     },
   ];
+  String _csvSafe(String value) {
+    return '"${value.replaceAll('"', '""').replaceAll('\n', ' ')}"';
+  }
+
+  void _exportAgentPerformance() {
+    String csv = "";
+
+    // ===== Agent Info =====
+    csv += "Agent Performance Report\n";
+    csv += "Agent Name,Date\n";
+    csv += "${_csvSafe(agentInfo['name'])},${_csvSafe(agentInfo['date'])}\n\n";
+
+    // ===== Call Summary =====
+    csv += "Call Summary\n";
+    csv += "Total Calls,Connected,Missed\n";
+    csv +=
+        "${callSummary['total']},${callSummary['connected']},${callSummary['missed']}\n\n";
+
+    // ===== Time Activity =====
+    csv += "Time Activity\n";
+    csv += "Total Duration,Avg Duration,First Call,Last Call\n";
+    csv +=
+        "${_csvSafe(timeActivity['totalDuration']!)},"
+        "${_csvSafe(timeActivity['avgDuration']!)},"
+        "${_csvSafe(timeActivity['firstCall']!)},"
+        "${_csvSafe(timeActivity['lastCall']!)}\n\n";
+
+    // ===== Activity Logs =====
+    csv += "Lead Name,Company,Phone,Time,Duration,Status\n";
+
+    for (final log in activityLogs) {
+      csv +=
+          "${_csvSafe(log['name'])},"
+          "${_csvSafe(log['company'])},"
+          "${_csvSafe(log['phone'])},"
+          "${_csvSafe(log['time'])},"
+          "${_csvSafe(log['duration'])},"
+          "${_csvSafe(log['status'])}\n";
+    }
+
+    // ===== Download =====
+    final bytes = utf8.encode(csv);
+    final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute(
+        "download",
+        "${agentInfo['name']}_performance_${agentInfo['date']}.csv",
+      )
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+  }
 
   // ================= BUILD =================
 
@@ -115,7 +171,7 @@ class AgentPerformanceScreen extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: _exportAgentPerformance,
               icon: const Icon(Icons.download),
               label: const Text("Export"),
             ),
@@ -142,8 +198,10 @@ class AgentPerformanceScreen extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Call Summary",
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text(
+            "Call Summary",
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 12),
           Text(
             "${callSummary["total"]}",
@@ -178,8 +236,10 @@ class AgentPerformanceScreen extends StatelessWidget {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("Time Activity",
-              style: TextStyle(fontWeight: FontWeight.w600)),
+          const Text(
+            "Time Activity",
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
           const SizedBox(height: 12),
           _timeRow("Total Duration", timeActivity["totalDuration"]!),
           _timeRow("Avg Duration", timeActivity["avgDuration"]!),
@@ -244,19 +304,19 @@ class AgentPerformanceScreen extends StatelessWidget {
             flex: 2,
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  child: Text(log["name"][0]),
-                ),
+                CircleAvatar(radius: 14, child: Text(log["name"][0])),
                 const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(log["name"],
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text(log["company"],
-                        style:
-                            const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(
+                      log["name"],
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      log["company"],
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ),
               ],
