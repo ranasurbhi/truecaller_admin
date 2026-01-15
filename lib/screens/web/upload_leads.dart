@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
 import 'package:truecaller/screens/web/map_column_leads.dart';
+import 'package:truecaller/services/api_service2.dart';
 
 class UploadLeadsScreen extends StatefulWidget {
   const UploadLeadsScreen({super.key});
@@ -14,17 +15,32 @@ class UploadLeadsScreen extends StatefulWidget {
 }
 
 class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
-  // ================= STATE =================
-
   int currentStep = 1;
-
   Uint8List? fileBytes;
   String? fileName;
 
   List<String> previewHeaders = [];
   List<Map<String, String>> previewRows = [];
 
-  // ================= BUILD =================
+  List<Map<String, dynamic>> campaigns = [];
+  Map<String, dynamic>? selectedCampaign;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCampaigns();
+  }
+
+  Future<void> _fetchCampaigns() async {
+    try {
+      final data = await ApiService2.getCampaigns();
+      setState(() {
+        campaigns = List<Map<String, dynamic>>.from(data);
+      });
+    } catch (e) {
+      debugPrint("Failed to fetch campaigns: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +52,8 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _header(),
+            const SizedBox(height: 20),
+            _campaignDropdown(),
             const SizedBox(height: 20),
             _stepIndicator(),
             const SizedBox(height: 24),
@@ -49,8 +67,6 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       ),
     );
   }
-
-  // ================= HEADER =================
 
   Widget _header() {
     return Row(
@@ -79,7 +95,25 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     );
   }
 
-  // ================= STEPS =================
+  Widget _campaignDropdown() {
+    return campaigns.isEmpty
+        ? const CircularProgressIndicator()
+        : DropdownButtonFormField<Map<String, dynamic>>(
+      value: selectedCampaign,
+      hint: const Text("Select Campaign"),
+      items: campaigns
+          .map((c) => DropdownMenuItem(
+        value: c,
+        child: Text(c['campaign_name']),
+      ))
+          .toList(),
+      onChanged: (val) {
+        setState(() {
+          selectedCampaign = val;
+        });
+      },
+    );
+  }
 
   Widget _stepIndicator() {
     return Container(
@@ -115,11 +149,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     );
   }
 
-  Widget _stepDivider() {
-    return Expanded(child: Divider(color: Colors.grey.shade300));
-  }
-
-  // ================= UPLOAD =================
+  Widget _stepDivider() => Expanded(child: Divider(color: Colors.grey.shade300));
 
   Widget _uploadCard() {
     return Container(
@@ -175,8 +205,6 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     }
   }
 
-  // ================= PARSING =================
-
   void _parseCsv(Uint8List bytes) {
     final csvString = String.fromCharCodes(bytes);
     final rows = const CsvToListConverter().convert(csvString);
@@ -185,7 +213,6 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
 
     setState(() {
       previewHeaders = rows.first.map((e) => e.toString()).toList();
-
       previewRows = rows.skip(1).map((row) {
         final Map<String, String> map = {};
         for (int i = 0; i < previewHeaders.length; i++) {
@@ -198,15 +225,11 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
 
   void _parseExcel(Uint8List bytes) {
     final excelFile = excel.Excel.decodeBytes(bytes);
-
     final sheet = excelFile.tables.values.first;
 
     if (sheet == null || sheet.rows.isEmpty) return;
 
-    final headers = sheet.rows.first
-        .map((cell) => cell?.value.toString() ?? "")
-        .toList();
-
+    final headers = sheet.rows.first.map((cell) => cell?.value.toString() ?? "").toList();
     final rows = sheet.rows.skip(1).map((row) {
       final Map<String, String> map = {};
       for (int i = 0; i < headers.length; i++) {
@@ -221,8 +244,6 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     });
   }
 
-  // ================= PREVIEW =================
-
   Widget _filePreviewSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,10 +254,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: const [
             Text("File Preview", style: TextStyle(fontWeight: FontWeight.w600)),
-            Text(
-              "Displaying first 5 rows",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
+            Text("Displaying first 5 rows", style: TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         const SizedBox(height: 12),
@@ -295,16 +313,14 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
-        children: previewHeaders
-            .map(
+        children: previewHeaders.map(
               (h) => Expanded(
-                child: Text(
-                  h.toUpperCase(),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            )
-            .toList(),
+            child: Text(
+              h.toUpperCase(),
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+        ).toList(),
       ),
     );
   }
@@ -313,18 +329,14 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Row(
-        children: previewHeaders
-            .map(
+        children: previewHeaders.map(
               (h) => Expanded(
-                child: Text(row[h] ?? "", style: const TextStyle(fontSize: 12)),
-              ),
-            )
-            .toList(),
+            child: Text(row[h] ?? "", style: const TextStyle(fontSize: 12)),
+          ),
+        ).toList(),
       ),
     );
   }
-
-  // ================= FOOTER =================
 
   Widget _footerActions() {
     return Row(
@@ -332,27 +344,26 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       children: [
         OutlinedButton(onPressed: () {}, child: const Text("Cancel")),
         ElevatedButton(
-          onPressed: previewHeaders.isEmpty || previewRows.isEmpty
+          onPressed: previewHeaders.isEmpty || previewRows.isEmpty || selectedCampaign == null
               ? null
               : () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => MapColumnsScreen(
-                        excelHeaders: previewHeaders,
-                        sampleRow: previewRows.first,
-                        previewRows: previewRows,
-                      ),
-                    ),
-                  );
-                },
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MapColumnsScreen(
+                  excelHeaders: previewHeaders,
+                  sampleRow: previewRows.first,
+                  previewRows: previewRows,
+                  campaignId: selectedCampaign!['id'],
+                ),
+              ),
+            );
+          },
           child: const Text("Next: Map Columns"),
         ),
       ],
     );
   }
-
-  // ================= SHARED =================
 
   BoxDecoration _cardDecoration({bool dashed = false}) {
     return BoxDecoration(

@@ -81,5 +81,24 @@ class ApiService2 {
     final json = jsonDecode(res.body);
     return json['data'];
   }
+  // ================= UPLOAD LEADS (FINAL) =================
+  static Future<Map<String, dynamic>> uploadLeadsBatch(
+      int campaignId,
+      List<Map<String, dynamic>> leads,
+      ) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/leads/batch"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "campaign_id": campaignId,
+        "leads": leads,
+      }),
+    );
+
+    return jsonDecode(res.body);
+  }
+
+
 }
+
 
