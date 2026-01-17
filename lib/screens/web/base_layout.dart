@@ -24,6 +24,7 @@ class WebLayout extends StatelessWidget {
 
     ];
 
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8FB),
       body: Row(

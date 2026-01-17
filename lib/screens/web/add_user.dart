@@ -1,6 +1,8 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class AddUserWebScreen extends StatefulWidget {
@@ -14,12 +16,19 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
   Uint8List? _profileImageBytes;
   String? _profileImageName;
 
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+  final passwordController = TextEditingController();
+  final roleController = TextEditingController();
+  final teamController = TextEditingController();
+  final dojController = TextEditingController();
+
   Future<void> _pickProfileImage() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       withData: true,
     );
-
     if (result != null && result.files.single.bytes != null) {
       setState(() {
         _profileImageBytes = result.files.single.bytes!;
@@ -28,37 +37,112 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     }
   }
 
+  Future<void> _submitUser() async {
+    if (nameController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      _showError("Name, Email and Password are required");
+      return;
+    }
+
+    const url = "http://10.37.119.118:3000/users/add-user";
+
+    try {
+      final request = http.MultipartRequest("POST", Uri.parse(url));
+      request.fields.addAll({
+        "name": nameController.text,
+        "email": emailController.text,
+        "phone": phoneController.text,
+        "password": passwordController.text,
+        "role": roleController.text,
+        "team": teamController.text,
+        "date_of_joining": dojController.text,
+      });
+
+      if (_profileImageBytes != null) {
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            "profile_image",
+            _profileImageBytes!,
+            filename: _profileImageName ?? "profile.png",
+          ),
+        );
+      }
+
+      final response = await request.send();
+      final body = await response.stream.bytesToString();
+      final json = body.isNotEmpty ? jsonDecode(body) : {};
+
+      if (response.statusCode == 200 && json["success"] == true) {
+        _showSuccess();
+        _clearForm();
+      } else {
+        _showError(json["message"] ?? "Failed to add user");
+      }
+    } catch (e) {
+      _showError(e.toString());
+    }
+  }
+
+  void _showSuccess() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Success"),
+        content: const Text("User added successfully"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+        ],
+      ),
+    );
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+  }
+
+  void _clearForm() {
+    nameController.clear();
+    emailController.clear();
+    phoneController.clear();
+    passwordController.clear();
+    roleController.clear();
+    teamController.clear();
+    dojController.clear();
+    setState(() {
+      _profileImageBytes = null;
+      _profileImageName = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 1, // Team Members active
+      selectedIndex: 1,
       child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [_header(), const SizedBox(height: 20), _formCard()],
-          ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 20),
+            _formCard(),
+          ],
         ),
       ),
     );
   }
 
-  // ================= HEADER =================
-
   Widget _header() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
-        Text(
-          "Team Members > Add New",
-          style: TextStyle(fontSize: 12, color: Colors.grey),
-        ),
+      children: [
+        Text("Team Members > Add New",
+            style: TextStyle(fontSize: 12, color: Colors.grey)),
         SizedBox(height: 8),
-        Text(
-          "Add New User Account",
-          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-        ),
+        Text("Add New User Account",
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
         SizedBox(height: 4),
         Text(
           "Enter details to create a new account for a telecaller, assign roles and teams.",
@@ -67,8 +151,6 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       ],
     );
   }
-
-  // ================= FORM CARD =================
 
   Widget _formCard() {
     return ConstrainedBox(
@@ -81,206 +163,175 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
           border: Border.all(color: Colors.grey.shade200),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _profileSection(),
             _divider(),
-            _personalDetailsSection(),
+            _personalDetails(),
             _divider(),
-            _roleAssignmentSection(),
+            _roleSection(),
             const SizedBox(height: 20),
-            _actionButtons(),
+            _buttons(),
           ],
         ),
       ),
     );
   }
 
-  // ================= PROFILE =================
-
   Widget _profileSection() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SizedBox(
           width: 260,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Profile Picture",
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+              Text("Profile Picture", style: TextStyle(fontWeight: FontWeight.w600)),
               SizedBox(height: 4),
-              Text(
-                "Upload a photo to identify the user in the system.",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              Text("Upload a photo to identify the user.",
+                  style: TextStyle(fontSize: 12, color: Colors.grey)),
             ],
           ),
         ),
         const SizedBox(width: 24),
-        _profileActions(),
-      ],
-    );
-  }
-
-  Widget _profileActions() {
-    return Row(
-      children: [
-        CircleAvatar(
-          radius: 40,
-          backgroundImage: _profileImageBytes != null
-              ? MemoryImage(_profileImageBytes!)
-              : null,
-          child: _profileImageBytes == null
-              ? const Icon(Icons.person, size: 40)
-              : null,
-        ),
-        const SizedBox(width: 20),
-        InkWell(
-          onTap: _pickProfileImage,
-          child: Container(
-            width: 280,
-            height: 80,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.blue.shade200),
-              borderRadius: BorderRadius.circular(8),
+        Row(
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundImage:
+              _profileImageBytes != null ? MemoryImage(_profileImageBytes!) : null,
+              child: _profileImageBytes == null
+                  ? const Icon(Icons.person, size: 40)
+                  : null,
             ),
-            child: Text(
-              _profileImageName ?? "Click to upload or drag and drop",
-              style: const TextStyle(color: Colors.blue),
-              overflow: TextOverflow.ellipsis,
+            const SizedBox(width: 20),
+            InkWell(
+              onTap: _pickProfileImage,
+              child: Container(
+                width: 280,
+                height: 80,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.blue.shade200),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  _profileImageName ?? "Click to upload or drag and drop",
+                  style: const TextStyle(color: Colors.blue),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
       ],
     );
   }
 
-  // ================= PERSONAL DETAILS =================
-
-  Widget _personalDetailsSection() {
+  Widget _personalDetails() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionInfo(
-          "Personal Details",
-          "Basic identification information for the new user account.",
-        ),
+        _sectionInfo("Personal Details",
+            "Basic identification information for the new user."),
         const SizedBox(width: 24),
         Expanded(
           child: Column(
             children: [
-              _rowInputs("Full Name", "Email Address"),
+              _row(nameController, emailController, "Full Name", "Email Address"),
               const SizedBox(height: 12),
-              _rowInputs("Phone Number", "Password", obscureSecond: true),
+              _row(phoneController, passwordController, "Phone Number", "Password",
+                  obscureSecond: true),
             ],
           ),
-        ),
+        )
       ],
     );
   }
 
-  // ================= ROLE =================
-
-  Widget _roleAssignmentSection() {
+  Widget _roleSection() {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionInfo(
-          "Role & Assignment",
-          "Define the user's responsibilities, access level, and team placement.",
-        ),
+        _sectionInfo("Role & Assignment",
+            "Define the user's responsibilities and team."),
         const SizedBox(width: 24),
         Expanded(
           child: Column(
             children: [
-              _inputField("Assign Role", "Select a role..."),
+              _input("Assign Role", roleController),
               const SizedBox(height: 12),
-              _rowInputs(
-                "Team Assignment (Optional)",
-                "Date of Joining (Optional)",
-              ),
+              _row(teamController, dojController,
+                  "Team Assignment (Optional)", "Date of Joining (Optional)"),
             ],
           ),
-        ),
+        )
       ],
     );
   }
 
-  // ================= SHARED =================
+  Widget _sectionInfo(String t, String d) => SizedBox(
+    width: 260,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
+        const SizedBox(height: 4),
+        Text(d, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+      ],
+    ),
+  );
 
-  Widget _sectionInfo(String title, String desc) {
-    return SizedBox(
-      width: 260,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(desc, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-        ],
-      ),
-    );
-  }
-
-  Widget _rowInputs(String a, String b, {bool obscureSecond = false}) {
+  Widget _row(TextEditingController a, TextEditingController b, String la, String lb,
+      {bool obscureSecond = false}) {
     return Row(
       children: [
-        Expanded(child: _inputField(a, "e.g. $a")),
+        Expanded(child: _input(la, a)),
         const SizedBox(width: 16),
-        Expanded(child: _inputField(b, "e.g. $b", obscureText: obscureSecond)),
+        Expanded(child: _input(lb, b, obscure: obscureSecond)),
       ],
     );
   }
 
-  Widget _inputField(String label, String hint, {bool obscureText = false}) {
+  Widget _input(String label, TextEditingController c, {bool obscure = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 12)),
         const SizedBox(height: 6),
         TextField(
-          obscureText: obscureText,
+          controller: c,
+          obscureText: obscure,
           decoration: InputDecoration(
-            hintText: hint,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            isDense: true,
           ),
         ),
       ],
     );
   }
 
-  Widget _divider() => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 20),
-    child: Divider(),
-  );
+  Widget _divider() =>
+      const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider());
 
-  Widget _actionButtons() {
+  Widget _buttons() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
-        OutlinedButton(onPressed: () {}, 
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        OutlinedButton(
+          onPressed: _clearForm,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-        ),
-        child: const Text("Cancel"),
+          ),
+          child: const Text("Cancel"),
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.check, size: 18,color:Colors.white),
-          label: const Text("Add User",style: TextStyle(color:Colors.white),),
+          onPressed: _submitUser,
+          icon: const Icon(Icons.check, size: 18, color: Colors.white),
+          label: const Text(
+            "Add User",
+            style: TextStyle(color: Colors.white),
+          ),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.blue,
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
@@ -289,8 +340,8 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
             ),
           ),
         ),
-        
       ],
     );
   }
+
 }

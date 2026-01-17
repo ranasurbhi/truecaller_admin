@@ -6,96 +6,110 @@ import 'package:truecaller/components/agent_table.dart';
 import 'package:truecaller/components/stat_card.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
 
-class DashboardScreen extends StatelessWidget {
-  DashboardScreen({super.key});
+import '../../services/api_service.dart';
+import '../../models/agent.dart';
+import '../../models/call_summary.dart';
 
-  /// 🔹 Single source of truth for table + export
-  final agentData = [
-  {
-    "name": "Sarah Jenkins",
-    "role": "Senior Agent",
-    "status": "On Call",
-    "target": 100,
-    "achieved": 98,
-    "calls": 98,
-    "avgDuration": "3m 12s",
-    "sales": 12,
-  },
-  {
-    "name": "Mike Ross",
-    "role": "Agent",
-    "status": "Available",
-    "target": 100,
-    "achieved": 84,
-    "calls": 84,
-    "avgDuration": "2m 45s",
-    "sales": 9,
-  },
-  {
-    "name": "Elena Gilbert",
-    "role": "Agent",
-    "status": "Away",
-    "target": 100,
-    "achieved": 76,
-    "calls": 76,
-    "avgDuration": "2m 30s",
-    "sales": 7,
-  },
-  {
-    "name": "David Lee",
-    "role": "Junior Agent",
-    "status": "On Call",
-    "target": 100,
-    "achieved": 52,
-    "calls": 52,
-    "avgDuration": "3m 50s",
-    "sales": 4,
-  },
-];
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
 
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
 
-  /// 🔹 Export CSV logic (Web)
+class _DashboardScreenState extends State<DashboardScreen> {
+  CallSummary? summary;
+  List<Agent> agents = [];
+  bool loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboardData();
+  }
+
+  // ---------------- API FETCH ----------------
+
+  Future<void> _loadDashboardData() async {
+    setState(() => loading = true);
+
+    try {
+      final data = await ApiService.fetchDashboardData();
+
+      if (!mounted) return;
+
+      setState(() {
+        summary = ApiService.parseSummary(data);
+        agents = ApiService.parseAgents(data['agents']);
+        loading = false;
+      });
+    } catch (e) {
+      debugPrint("Dashboard error: $e");
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  // ---------------- CSV EXPORT ----------------
+
   void _exportDashboardReport() {
-    String csv =
-        "Agent Name,Role,Status,Target,Achieved,Calls,Average Duration,Sales\n";
+    if (agents.isEmpty) return;
 
-    for (final agent in agentData) {
+    String csv =
+        "Agent Name,Status,Total Calls,Connected,Missed,Average Duration\n";
+
+    for (final agent in agents) {
       csv +=
-          "${agent['name']},${agent['role']},${agent['status']},${agent['target']},${agent['achieved']},${agent['calls']},${agent['avgDuration']},${agent['sales']}\n";
+          "${agent.name},"
+          "${agent.status},"
+          "${agent.totalCalls},"
+          "${agent.connected},"
+          "${agent.missed},"
+          "${agent.avgDurationFormatted}\n";
     }
 
     final bytes = utf8.encode(csv);
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
 
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute("download", "agent_performance_report.csv")
       ..click();
 
     html.Url.revokeObjectUrl(url);
   }
 
+  // ---------------- UI ----------------
+
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 0,
       child: Padding(
-        padding: const EdgeInsets.all(8.0),
+        padding: const EdgeInsets.all(8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _header(context),
             const SizedBox(height: 20),
-            _statsRow(context),
+
+            if (loading)
+              const Center(child: CircularProgressIndicator())
+            else if (summary != null)
+              _statsRow(context, summary!)
+            else
+              const Center(child: Text("No data available")),
+
             const SizedBox(height: 24),
 
-            /// 🔹 Table uses SAME data as export
-            AgentPerformanceTable(agentData: agentData),
+            if (!loading)
+              AgentPerformanceTable(agents: agents),
           ],
         ),
       ),
     );
   }
+
+  // ---------------- HEADER ----------------
 
   Widget _header(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
@@ -119,9 +133,9 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _headerText() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           "Daily Overview",
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
@@ -137,7 +151,7 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _exportButton() {
     return ElevatedButton.icon(
-      onPressed: _exportDashboardReport,
+      onPressed: agents.isEmpty ? null : _exportDashboardReport,
       icon: const Icon(Icons.download, size: 18, color: Colors.white),
       label: const Text(
         "Export Report",
@@ -153,11 +167,12 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _statsRow(BuildContext context) {
+  // ---------------- STATS ----------------
+
+  Widget _statsRow(BuildContext context, CallSummary summary) {
     return LayoutBuilder(
       builder: (context, constraints) {
         int columns = 4;
-
         if (constraints.maxWidth < 1200) columns = 2;
         if (constraints.maxWidth < 700) columns = 1;
 
@@ -170,40 +185,42 @@ class DashboardScreen extends StatelessWidget {
           children: [
             _statItem(
               cardWidth,
-              const StatCard(
+              StatCard(
                 title: "Total Calls",
-                value: "1,240",
-                subtitle: "+12% vs yesterday",
+                value: summary.totalCalls.toString(),
+                subtitle: "All agents",
                 icon: Icons.phone,
                 positive: true,
               ),
             ),
             _statItem(
               cardWidth,
-              const StatCard(
+              StatCard(
                 title: "Connected",
-                value: "840",
-                subtitle: "+5% vs avg",
+                value: summary.connected.toString(),
+                subtitle: "Successful calls",
                 icon: Icons.call,
                 positive: true,
               ),
             ),
             _statItem(
               cardWidth,
-              const StatCard(
+              StatCard(
                 title: "Avg Duration",
-                value: "2m 14s",
-                subtitle: "+30s improvement",
+                value: formatDuration(
+                  (summary.avgDuration * 60).round(),
+                ),
+                subtitle: "Across agents",
                 icon: Icons.timer,
                 positive: true,
               ),
             ),
             _statItem(
               cardWidth,
-              const StatCard(
+              StatCard(
                 title: "Missed Calls",
-                value: "45",
-                subtitle: "-2% (Good)",
+                value: summary.missedCalls.toString(),
+                subtitle: "Needs attention",
                 icon: Icons.call_missed,
                 positive: false,
               ),
@@ -215,9 +232,12 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _statItem(double width, Widget child) {
-    return SizedBox(
-      width: width,
-      child: child,
-    );
+    return SizedBox(width: width, child: child);
+  }
+
+  String formatDuration(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return "${minutes}m ${secs}s";
   }
 }
