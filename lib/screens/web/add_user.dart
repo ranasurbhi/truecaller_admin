@@ -45,7 +45,7 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       return;
     }
 
-    const url = "http://10.37.119.118:3000/users/add-user";
+    const url = "http://192.168.0.106:3000/users/add-user";
 
     try {
       final request = http.MultipartRequest("POST", Uri.parse(url));

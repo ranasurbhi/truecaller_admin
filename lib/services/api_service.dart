@@ -6,7 +6,7 @@ import '../models/call_summary.dart';
 import '../models/agent.dart';
 
 class ApiService {
-  static const baseUrl = "http://192.168.0.105:3000";
+  static const baseUrl = "http://192.168.0.106:3000";
 
   // Fetch combined dashboard data
   static Future<Map<String, dynamic>> fetchDashboardData() async {

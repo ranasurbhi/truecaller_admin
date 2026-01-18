@@ -14,7 +14,7 @@ class LeadActivityScreen extends StatefulWidget {
 }
 
 class _LeadActivityScreenState extends State<LeadActivityScreen> {
-  final String baseUrl = "http://192.168.0.105:3000";
+  final String baseUrl = "http://192.168.0.106:3000";
 
   bool loading = true;
   String? error;
@@ -61,7 +61,7 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
 
   Future<void> _fetchActivities() async {
     final res = await http.get(
-      Uri.parse("$baseUrl/lead_activities?lead_id=${widget.leadId}"),
+        Uri.parse("$baseUrl/lead_activities?lead_id=${widget.leadId}")
     );
 
     if (res.statusCode != 200) {
@@ -75,10 +75,10 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
       final createdAt = DateTime.parse(a['created_at']);
       return {
         "id": a['id'],
-        "type": a['type'] ?? 'note',
-        "title": a['title'] ?? 'Activity',
+        "type": a['type'],
+        "title": a['title'],
         "description": a['description'] ?? '',
-        "user": a['user'] ?? 'System',
+        "user": a['user'],
         "time": DateFormat('h:mm a').format(createdAt),
         "date": _formatDate(createdAt),
         "created_at": createdAt,
@@ -86,10 +86,8 @@ class _LeadActivityScreenState extends State<LeadActivityScreen> {
         "to": a['to'] ?? '',
       };
     }).toList();
-
-    // Sort by date descending
-    activities.sort((a, b) => b['created_at'].compareTo(a['created_at']));
   }
+
 
   Future<void> _postActivity() async {
     if (activityController.text.trim().isEmpty) return;
