@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/forgot_password.dart';
 
 class LoginWebScreen extends StatefulWidget {
@@ -9,9 +11,13 @@ class LoginWebScreen extends StatefulWidget {
 }
 
 class _LoginWebScreenState extends State<LoginWebScreen> {
-  // ================= FORM STATE =================
+  // ================= CONFIG =================
+  static const String baseUrl = "http://localhost:3000";
+  // change localhost to server IP if needed
 
+  // ================= FORM STATE =================
   final _formKey = GlobalKey<FormState>();
+
   final TextEditingController emailController = TextEditingController(
     text: "admin@telecall.com",
   );
@@ -22,7 +28,6 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
   bool isLoading = false;
 
   // ================= BUILD =================
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,7 +46,6 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
   }
 
   // ================= UI =================
-
   Widget _loginCard() {
     return Container(
       width: 420,
@@ -64,23 +68,18 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
             ),
             const SizedBox(height: 24),
 
-            // EMAIL
             _inputLabel("Email Address"),
             _emailField(),
             const SizedBox(height: 16),
 
-            // PASSWORD
             _inputLabel("Password"),
             _passwordField(),
             const SizedBox(height: 12),
 
-            // REMEMBER + FORGOT
             _optionsRow(),
             const SizedBox(height: 20),
 
-            // SIGN IN
             _signInButton(),
-
             const SizedBox(height: 16),
             _supportText(),
           ],
@@ -90,10 +89,10 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
   }
 
   Widget _logo() {
-    return CircleAvatar(
+    return const CircleAvatar(
       radius: 28,
       backgroundColor: Colors.blue,
-      child: const Icon(Icons.headset_mic, color: Colors.white, size: 28),
+      child: Icon(Icons.headset_mic, color: Colors.white, size: 28),
     );
   }
 
@@ -116,12 +115,8 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
         isDense: true,
       ),
       validator: (v) {
-        if (v == null || v.isEmpty) {
-          return "Email is required";
-        }
-        if (!v.contains("@")) {
-          return "Enter a valid email";
-        }
+        if (v == null || v.isEmpty) return "Email is required";
+        if (!v.contains("@")) return "Enter a valid email";
         return null;
       },
     );
@@ -136,19 +131,17 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
         border: const OutlineInputBorder(),
         isDense: true,
         suffixIcon: IconButton(
-          icon: Icon(obscurePassword ? Icons.visibility_off : Icons.visibility),
+          icon: Icon(
+            obscurePassword ? Icons.visibility_off : Icons.visibility,
+          ),
           onPressed: () {
             setState(() => obscurePassword = !obscurePassword);
           },
         ),
       ),
       validator: (v) {
-        if (v == null || v.isEmpty) {
-          return "Password is required";
-        }
-        if (v.length < 6) {
-          return "Minimum 6 characters";
-        }
+        if (v == null || v.isEmpty) return "Password is required";
+        if (v.length < 6) return "Minimum 6 characters";
         return null;
       },
     );
@@ -162,9 +155,7 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
           children: [
             Checkbox(
               value: rememberMe,
-              onChanged: (v) {
-                setState(() => rememberMe = v ?? false);
-              },
+              onChanged: (v) => setState(() => rememberMe = v ?? false),
             ),
             const Text("Remember Me"),
           ],
@@ -205,50 +196,52 @@ class _LoginWebScreenState extends State<LoginWebScreen> {
   }
 
   Widget _supportText() {
-    return RichText(
-      text: const TextSpan(
-        style: TextStyle(color: Colors.grey),
-        children: [
-          TextSpan(text: "Technical issues? "),
-          TextSpan(
-            text: "Contact Support",
-            style: TextStyle(color: Colors.blue),
-          ),
-        ],
-      ),
+    return const Text(
+      "Technical issues? Contact Support",
+      style: TextStyle(color: Colors.grey),
     );
   }
 
-  // ================= LOGIC =================
-
+  // ================= LOGIN LOGIC =================
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => isLoading = true);
 
-    // 🔹 Simulate API delay
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/login"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": emailController.text.trim(),
+          "password": passwordController.text,
+        }),
+      );
 
-    final email = emailController.text;
-    final password = passwordController.text;
+      final data = jsonDecode(response.body);
 
-    // 🔹 TEMP LOGIN CHECK (replace with API)
-    if (email == "admin@telecall.com" && password == "admin123") {
-      // Navigate to dashboard
+      if (response.statusCode == 200 && data["success"] == true) {
+        if (!mounted) return;
+        Navigator.pushReplacementNamed(context, "/");
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(data["message"] ?? "Login failed"),
+          ),
+        );
+      }
+    } catch (e) {
       if (!mounted) return;
-      Navigator.pushReplacementNamed(context, "/");
-    } else {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Invalid credentials")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Unable to connect to server")),
+      );
     }
 
     setState(() => isLoading = false);
   }
 
   // ================= STYLES =================
-
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,

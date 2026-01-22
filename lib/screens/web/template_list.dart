@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class MessageTemplatesScreen extends StatefulWidget {
@@ -9,97 +11,86 @@ class MessageTemplatesScreen extends StatefulWidget {
       _MessageTemplatesScreenState();
 }
 
-class _MessageTemplatesScreenState
-    extends State<MessageTemplatesScreen> {
+class _MessageTemplatesScreenState extends State<MessageTemplatesScreen> {
+  // ================= CONFIG =================
+  final String baseUrl = "http://localhost:3000/api/message-templates";
+
   // ================= STATE =================
-
+  bool isLoading = true;
   String selectedStatus = "All";
-  String selectedType = "All";
 
-  final List<Map<String, dynamic>> templates = [
-    {
-      "name": "Welcome Message V1",
-      "type": "WhatsApp",
-      "status": "Active",
-      "content": "Hi {{name}}, thanks for joining us! We are excited to have you.",
-      "date": "Oct 24, 2023",
-    },
-    {
-      "name": "Follow-up SMS",
-      "type": "SMS",
-      "status": "Active",
-      "content": "Just checking in regarding your interest in our services.",
-      "date": "Oct 22, 2023",
-    },
-    {
-      "name": "Payment Reminder",
-      "type": "Email",
-      "status": "Draft",
-      "content": "This is a friendly reminder that your invoice is due.",
-      "date": "Oct 20, 2023",
-    },
-    {
-      "name": "Black Friday Promo",
-      "type": "WhatsApp",
-      "status": "Active",
-      "content": "Exclusive 50% off just for you! Use code SALE50.",
-      "date": "Oct 18, 2023",
-    },
-    {
-      "name": "Feedback Request",
-      "type": "SMS",
-      "status": "Draft",
-      "content": "How was your experience with our support team?",
-      "date": "Oct 15, 2023",
-    },
-  ];
+  List<Map<String, dynamic>> templates = [];
+
+  // ================= INIT =================
+  @override
+  void initState() {
+    super.initState();
+    fetchTemplates();
+  }
+
+  // ================= API =================
+  Future<void> fetchTemplates() async {
+    try {
+      final res = await http.get(Uri.parse(baseUrl));
+      if (res.statusCode == 200) {
+        setState(() {
+          templates = List<Map<String, dynamic>>.from(
+            jsonDecode(res.body),
+          );
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      isLoading = false;
+    }
+  }
 
   // ================= BUILD =================
-
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 4,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 20),
-              _filtersRow(),
-              const SizedBox(height: 16),
-              _tableCard(),
-            ],
-          ),
-        ),
+      selectedIndex: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _header(),
+                  const SizedBox(height: 20),
+                  _filtersRow(),
+                  const SizedBox(height: 16),
+                  _tableCard(),
+                ],
+              ),
       ),
     );
   }
 
   // ================= HEADER =================
-
   Widget _header() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               "Message Templates",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             SizedBox(height: 4),
             Text(
-              "Manage and organize all your communication scripts here.",
+              "Manage and organize your message templates.",
               style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
         ElevatedButton.icon(
-          onPressed: () {Navigator.pushNamed(context, "/create-template");},
+          onPressed: () {
+            Navigator.pushNamed(context, "/create-template");
+          },
           icon: const Icon(Icons.add),
           label: const Text("Create New Template"),
         ),
@@ -108,7 +99,6 @@ class _MessageTemplatesScreenState
   }
 
   // ================= FILTERS =================
-
   Widget _filtersRow() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -118,7 +108,7 @@ class _MessageTemplatesScreenState
           Expanded(
             child: TextField(
               decoration: InputDecoration(
-                hintText: "Search by name or content...",
+                hintText: "Search templates...",
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border:
@@ -127,33 +117,18 @@ class _MessageTemplatesScreenState
             ),
           ),
           const SizedBox(width: 12),
-          _dropdownButton("All Types"),
-          const SizedBox(width: 12),
           _statusPill("All"),
           const SizedBox(width: 6),
           _statusPill("Active"),
-          const SizedBox(width: 6),
-          _statusPill("Draft"),
         ],
       ),
     );
   }
 
-  Widget _dropdownButton(String text) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.filter_list),
-      label: Text(text),
-    );
-  }
-
   Widget _statusPill(String value) {
     final isSelected = selectedStatus == value;
-
     return GestureDetector(
-      onTap: () {
-        setState(() => selectedStatus = value);
-      },
+      onTap: () => setState(() => selectedStatus = value),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -173,7 +148,6 @@ class _MessageTemplatesScreenState
   }
 
   // ================= TABLE =================
-
   Widget _tableCard() {
     return Container(
       decoration: _cardDecoration(),
@@ -182,8 +156,6 @@ class _MessageTemplatesScreenState
           _tableHeader(),
           const Divider(height: 1),
           ...templates.map(_tableRow).toList(),
-          const Divider(height: 1),
-          _pagination(),
         ],
       ),
     );
@@ -197,7 +169,7 @@ class _MessageTemplatesScreenState
           Expanded(flex: 3, child: Text("TEMPLATE NAME")),
           Expanded(flex: 2, child: Text("TYPE")),
           Expanded(flex: 4, child: Text("CONTENT PREVIEW")),
-          Expanded(flex: 2, child: Text("LAST MODIFIED")),
+          Expanded(flex: 2, child: Text("CREATED")),
           Expanded(flex: 1, child: Text("ACTIONS")),
         ],
       ),
@@ -211,29 +183,19 @@ class _MessageTemplatesScreenState
         children: [
           Expanded(
             flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t["name"],
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  t["status"],
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: t["status"] == "Active"
-                        ? Colors.green
-                        : Colors.grey,
-                  ),
-                ),
-              ],
+            child: Text(
+              t["name"],
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Expanded(flex: 2, child: _typeChip(t["type"])),
+          const Expanded(
+            flex: 2,
+            child: Chip(label: Text("Generic")),
+          ),
           Expanded(
             flex: 4,
             child: Text(
-              t["content"],
+              t["message"],
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
@@ -242,7 +204,10 @@ class _MessageTemplatesScreenState
           Expanded(
             flex: 2,
             child: Text(
-              t["date"],
+              t["created_at"]
+                  .toString()
+                  .split("T")
+                  .first,
               style: const TextStyle(fontSize: 12),
             ),
           ),
@@ -258,56 +223,7 @@ class _MessageTemplatesScreenState
     );
   }
 
-  Widget _typeChip(String type) {
-    Color color;
-    switch (type) {
-      case "WhatsApp":
-        color = Colors.green;
-        break;
-      case "SMS":
-        color = Colors.blue;
-        break;
-      case "Email":
-        color = Colors.purple;
-        break;
-      default:
-        color = Colors.grey;
-    }
-
-    return Chip(
-      label: Text(type),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(color: color, fontSize: 12),
-    );
-  }
-
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1 to 5 of 24 entries"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 6),
-              Text("1"),
-              SizedBox(width: 6),
-              Text("2"),
-              SizedBox(width: 6),
-              Text("3"),
-              SizedBox(width: 6),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   // ================= SHARED =================
-
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,

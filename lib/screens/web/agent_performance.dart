@@ -120,7 +120,7 @@ class AgentPerformanceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 2,
+      selectedIndex: 5,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

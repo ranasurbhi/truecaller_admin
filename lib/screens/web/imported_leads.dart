@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class ImportedLeadsWebScreen extends StatefulWidget {
@@ -7,6 +9,8 @@ class ImportedLeadsWebScreen extends StatefulWidget {
     required this.importedLeads,
   });
 
+  /// importedLeads MUST already be in backend format:
+  /// { name, phone, email?, company? }
   final List<Map<String, dynamic>> importedLeads;
 
   @override
@@ -16,121 +20,51 @@ class ImportedLeadsWebScreen extends StatefulWidget {
 
 class _ImportedLeadsWebScreenState
     extends State<ImportedLeadsWebScreen> {
+  final String apiUrl =
+      "http://127.0.0.1:3000/api/leads/batch";
+  final int campaignId = 1;
+
   final Set<int> selectedRows = {};
+  bool isImporting = false;
 
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 5,
-      child: SingleChildScrollView(
+      child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _header(context),
+            _header(),
             const SizedBox(height: 16),
-            _filtersRow(),
-            const SizedBox(height: 16),
-            _tableCard(),
+            _table(),
           ],
         ),
       ),
     );
   }
 
-  // ================= HEADER =================
-
-  Widget _header(BuildContext context) {
+  Widget _header() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Imported Leads",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              "Manage, search, and edit all your imported lead data in one place.",
-              style: const TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-        Row(
-          children: [
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.download),
-              label: const Text("Export CSV"),
-            ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.upload),
-              label: const Text("Import New Leads"),
-            ),
-          ],
+        const Text("Confirm Imported Leads",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        ElevatedButton.icon(
+          onPressed: isImporting ? null : _importLeads,
+          icon: const Icon(Icons.upload),
+          label: Text(
+            selectedRows.isEmpty
+                ? "Import All"
+                : "Import Selected (${selectedRows.length})",
+          ),
         ),
       ],
     );
   }
 
-  // ================= FILTERS =================
-
-  Widget _filtersRow() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: "Search by name, email, or phone...",
-                  prefixIcon: const Icon(Icons.search),
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            _filterButton("All Campaigns"),
-            const SizedBox(width: 8),
-            _filterButton("Import Date: All"),
-            const SizedBox(width: 8),
-            _filterButton("Status: All"),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          children: [
-            Chip(
-              label: const Text("Source: CSV Import"),
-              onDeleted: () {},
-            ),
-            TextButton(onPressed: () {}, child: const Text("Clear all")),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _filterButton(String text) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.expand_more),
-      label: Text(text),
-    );
-  }
-
-  // ================= TABLE =================
-
-  Widget _tableCard() {
+  Widget _table() {
     return Container(
       decoration: _cardDecoration(),
       child: Column(
@@ -140,10 +74,7 @@ class _ImportedLeadsWebScreenState
           ...widget.importedLeads
               .asMap()
               .entries
-              .map(_tableRow)
-              .toList(),
-          const Divider(height: 1),
-          _pagination(),
+              .map(_tableRow),
         ],
       ),
     );
@@ -151,30 +82,14 @@ class _ImportedLeadsWebScreenState
 
   Widget _tableHeader() {
     return Padding(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       child: Row(
-        children: [
-          Checkbox(
-            value: selectedRows.length ==
-                widget.importedLeads.length,
-            onChanged: (v) {
-              setState(() {
-                v == true
-                    ? selectedRows.addAll(
-                        List.generate(
-                            widget.importedLeads.length, (i) => i),
-                      )
-                    : selectedRows.clear();
-              });
-            },
-          ),
-          const Expanded(flex: 2, child: Text("NAME")),
-          const Expanded(child: Text("STATUS")),
-          const Expanded(child: Text("PHONE NUMBER")),
-          const Expanded(child: Text("EMAIL")),
-          const Expanded(child: Text("CAMPAIGN")),
-          const Expanded(child: Text("IMPORT DATE")),
-          const SizedBox(width: 40),
+        children: const [
+          SizedBox(width: 40),
+          Expanded(child: Text("NAME")),
+          Expanded(child: Text("PHONE")),
+          Expanded(child: Text("EMAIL")),
+          Expanded(child: Text("COMPANY")),
         ],
       ),
     );
@@ -185,7 +100,7 @@ class _ImportedLeadsWebScreenState
     final lead = entry.value;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           Checkbox(
@@ -198,97 +113,82 @@ class _ImportedLeadsWebScreenState
               });
             },
           ),
-
-          // NAME + AVATAR
-          Expanded(
-            flex: 2,
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  child: Text(
-                    (lead["Full Name"] ?? "U")[0],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(lead["Full Name"] ?? ""),
-              ],
-            ),
-          ),
-
-          Expanded(child: _statusChip(lead["status"])),
-          Expanded(child: Text(lead["Phone Number"] ?? "")),
-          Expanded(child: Text(lead["Email"] ?? "")),
-          const Expanded(child: Text("—")),
-          Expanded(child: Text(lead["importDate"])),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_vert),
-          ),
+          Expanded(child: Text(lead["name"] ?? "")),
+          Expanded(child: Text(lead["phone"] ?? "")),
+          Expanded(child: Text(lead["email"] ?? "—")),
+          Expanded(child: Text(lead["company"] ?? "—")),
         ],
       ),
     );
   }
 
-  // ================= PAGINATION =================
+  Future<void> _importLeads() async {
+    final indices = selectedRows.isEmpty
+        ? List.generate(widget.importedLeads.length, (i) => i)
+        : selectedRows.toList();
 
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1 to 10 of results"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 8),
-              Text("1"),
-              SizedBox(width: 8),
-              Text("2"),
-              SizedBox(width: 8),
-              Text("3"),
-              SizedBox(width: 8),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+    final payload = indices
+    .map((i) {
+      final l = widget.importedLeads[i];
 
-  // ================= STATUS =================
+      final name = l["name"]?.toString().trim();
+      final phone = l["phone"]?.toString().trim();
 
-  Widget _statusChip(String status) {
-    Color color;
-    switch (status) {
-      case "Active":
-        color = Colors.green;
-        break;
-      case "Pending":
-        color = Colors.orange;
-        break;
-      case "Do Not Call":
-        color = Colors.red;
-        break;
-      default:
-        color = Colors.blue;
+      if (name == null ||
+          name.isEmpty ||
+          phone == null ||
+          phone.isEmpty) {
+        return null; // DROP invalid row
+      }
+
+      return {
+        "name": name,
+        "phone": phone,
+        "email": l["email"]?.toString().trim(),
+        "company": l["company"]?.toString().trim(),
+      };
+    })
+    .whereType<Map<String, dynamic>>() // removes nulls
+    .toList();
+
+    if (payload.isEmpty) return;
+
+    setState(() => isImporting = true);
+
+    try {
+      final res = await http.post(
+        Uri.parse(apiUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "campaign_id": campaignId,
+          "leads": payload,
+        }),
+      );
+
+      final body = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && body["success"] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body["message"])),
+        );
+        Navigator.pop(context);
+      } else {
+        throw Exception();
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Import failed")),
+      );
+    } finally {
+      setState(() => isImporting = false);
     }
-
-    return Chip(
-      label: Text(status),
-      backgroundColor: color.withOpacity(0.12),
-      labelStyle: TextStyle(color: color, fontSize: 12),
-    );
   }
-
-  // ================= SHARED =================
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.grey.shade200),
+      border: Border.all(color: Colors.grey.shade300),
     );
   }
 }

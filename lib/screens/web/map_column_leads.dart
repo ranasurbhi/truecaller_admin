@@ -8,35 +8,33 @@ class MapColumnsScreen extends StatefulWidget {
   const MapColumnsScreen({
     super.key,
     required this.excelHeaders,
-    required this.sampleRow,
-    required this.previewRows, 
+    required this.previewRows,
+    required this.backendFields,
   });
 
   final List<String> excelHeaders;
-  final Map<String, String> sampleRow;
-
-  /// ALL parsed rows from Excel
   final List<Map<String, String>> previewRows;
+
+  /// Backend-supported fields ONLY
+  final List<String> backendFields;
 
   @override
   State<MapColumnsScreen> createState() => _MapColumnsScreenState();
 }
 
 class _MapColumnsScreenState extends State<MapColumnsScreen> {
-  // ================= CRM CONFIG =================
+  // ================= BACKEND FIELDS =================
 
-  final List<String> requiredFields = [
-    "Phone Number",
-  ];
+  /// backendKey -> label
+  final Map<String, String> backendFieldLabels = {
+    "name": "Full Name",
+    "phone": "Phone Number",
+    "email": "Email",
+    "company": "Company",
+  };
 
-  final List<String> optionalFields = [
-    "Full Name",
-    "Email",
-    "Company",
-    "City",
-    "Interest Level",
-    "Source",
-  ];
+  // phone is required
+  final List<String> requiredBackendFields = ["name", "phone"];
 
   // ================= STATE =================
 
@@ -53,16 +51,13 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
 
   void _initializeMapping() {
     for (final header in widget.excelHeaders) {
-      final match = [
-        ...requiredFields,
-        ...optionalFields,
-      ].firstWhere(
-        (f) => f.toLowerCase() == header.toLowerCase(),
-        orElse: () => "",
+      final match = backendFieldLabels.entries.firstWhere(
+        (e) => e.value.toLowerCase() == header.toLowerCase(),
+        orElse: () => const MapEntry("", ""),
       );
 
-      if (match.isNotEmpty) {
-        columnMapping[header] = match;
+      if (match.key.isNotEmpty) {
+        columnMapping[header] = match.key;
         columnStatus[header] = ColumnStatus.matched;
       } else {
         columnMapping[header] = null;
@@ -98,16 +93,16 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
   // ================= HEADER =================
 
   Widget _header() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           "Map Columns for Import",
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
         SizedBox(height: 6),
         Text(
-          "Match the columns from your uploaded file to the corresponding CRM fields.",
+          "Map your file columns to lead fields required by the system.",
           style: TextStyle(color: Colors.grey),
         ),
       ],
@@ -121,7 +116,7 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
     final mapped =
         columnStatus.values.where((s) => s == ColumnStatus.matched).length;
 
-    final double progress = total == 0 ? 0.0 : mapped / total;
+    final progress = total == 0 ? 0.0 : mapped / total;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +140,7 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
         children: [
           _tableHeader(),
           const Divider(height: 1),
-          ...widget.excelHeaders.map(_mappingRow).toList(),
+          ...widget.excelHeaders.map(_mappingRow),
         ],
       ),
     );
@@ -156,8 +151,8 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
       padding: EdgeInsets.all(14),
       child: Row(
         children: [
-          Expanded(flex: 3, child: Text("EXCEL HEADER (SOURCE)")),
-          Expanded(flex: 3, child: Text("LEAD FIELD (TARGET)")),
+          Expanded(flex: 3, child: Text("EXCEL COLUMN")),
+          Expanded(flex: 3, child: Text("MAP TO FIELD")),
           Expanded(flex: 1, child: Text("SKIP")),
         ],
       ),
@@ -166,43 +161,31 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
 
   Widget _mappingRow(String header) {
     final status = columnStatus[header]!;
-    final isUnmapped = status == ColumnStatus.unmapped;
     final isSkipped = status == ColumnStatus.skipped;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(
         children: [
-          // SOURCE COLUMN
+          // Excel column
           Expanded(
             flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(header,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  'Sample: "${widget.sampleRow[header] ?? ""}"',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
+            child: Text(header,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
           ),
 
-          // TARGET FIELD
+          // Backend field dropdown
           Expanded(
             flex: 3,
             child: DropdownButtonFormField<String>(
               value: columnMapping[header],
-              hint: const Text("What is this column?"),
-              items: [
-                ...requiredFields,
-                ...optionalFields,
-              ]
+              hint: const Text("Select field"),
+              items: backendFieldLabels.entries
                   .map(
-                    (f) =>
-                        DropdownMenuItem(value: f, child: Text(f)),
+                    (e) => DropdownMenuItem(
+                      value: e.key,
+                      child: Text(e.value),
+                    ),
                   )
                   .toList(),
               onChanged: isSkipped
@@ -218,13 +201,11 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                errorText:
-                    isUnmapped ? "Please map this column" : null,
               ),
             ),
           ),
 
-          // SKIP TOGGLE
+          // Skip toggle
           Expanded(
             flex: 1,
             child: Switch(
@@ -232,8 +213,8 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
               onChanged: (v) {
                 setState(() {
                   if (v) {
-                    columnStatus[header] = ColumnStatus.skipped;
                     columnMapping[header] = null;
+                    columnStatus[header] = ColumnStatus.skipped;
                   } else {
                     columnStatus[header] = ColumnStatus.unmapped;
                   }
@@ -249,7 +230,7 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
   // ================= FOOTER =================
 
   Widget _footerActions() {
-    final bool hasRequiredMapped = requiredFields.every(
+    final hasRequired = requiredBackendFields.every(
       (f) => columnMapping.values.contains(f),
     );
 
@@ -258,61 +239,44 @@ class _MapColumnsScreenState extends State<MapColumnsScreen> {
       children: [
         OutlinedButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
+          child: const Text("Back"),
         ),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            if (!hasRequiredMapped)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 6),
-                child: Text(
-                  "Phone Number is required to import leads",
-                  style: TextStyle(color: Colors.red, fontSize: 12),
-                ),
-              ),
-            ElevatedButton(
-              onPressed: hasRequiredMapped ? _confirmMapping : null,
-              child: const Text("Confirm Mapping"),
-            ),
-          ],
+        ElevatedButton(
+          onPressed: hasRequired ? _confirmMapping : null,
+          child: const Text("Confirm Mapping"),
         ),
       ],
     );
   }
 
+  // ================= CONFIRM =================
+
   void _confirmMapping() {
-  final importedLeads = buildImportedLeads();
+    final importedLeads = widget.previewRows.map((row) {
+      final Map<String, dynamic> lead = {};
 
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => ImportedLeadsWebScreen(
-        importedLeads: importedLeads,
+      columnMapping.forEach((excelHeader, backendKey) {
+        if (backendKey != null) {
+          final value = row[excelHeader]?.trim();
+if (value != null && value.isNotEmpty && value != "null") {
+  lead[backendKey] = value;
+}
+
+        }
+      });
+
+      return lead;
+    }).toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ImportedLeadsWebScreen(
+          importedLeads: importedLeads,
+        ),
       ),
-    ),
-  );
-}
-
-List<Map<String, dynamic>> buildImportedLeads() {
-  return widget.previewRows.map((row) {
-    final Map<String, dynamic> lead = {};
-
-    columnMapping.forEach((excelHeader, crmField) {
-      if (crmField != null) {
-        lead[crmField] = row[excelHeader];
-      }
-    });
-
-    // default system fields
-    lead["status"] = "New";
-    lead["importDate"] =
-        DateTime.now().toIso8601String().split("T").first;
-
-    return lead;
-  }).toList();
-}
-
+    );
+  }
 
   // ================= SHARED =================
 

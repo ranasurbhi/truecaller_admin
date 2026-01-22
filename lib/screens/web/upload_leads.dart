@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'package:csv/csv.dart';
 import 'package:excel/excel.dart' as excel;
 import 'package:file_picker/file_picker.dart';
@@ -14,8 +15,16 @@ class UploadLeadsScreen extends StatefulWidget {
 }
 
 class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
-  // ================= STATE =================
+  // ================= BACKEND CONTRACT =================
+  /// Only these fields will EVER go to backend
+  static const List<String> backendFields = [
+    "name",
+    "phone",
+    "email",
+    "company",
+  ];
 
+  // ================= STATE =================
   int currentStep = 1;
 
   Uint8List? fileBytes;
@@ -25,11 +34,10 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   List<Map<String, String>> previewRows = [];
 
   // ================= BUILD =================
-
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 5,
+      selectedIndex: 4,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -51,36 +59,24 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   // ================= HEADER =================
-
   Widget _header() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Upload Leads Data",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
-            ),
-            SizedBox(height: 4),
-            Text(
-              "Import your telecalling lists to assign to agents. Supported formats: .xlsx, .csv",
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
+        Text(
+          "Upload Leads Data",
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
         ),
-        OutlinedButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.download),
-          label: const Text("Sample Template"),
+        SizedBox(height: 4),
+        Text(
+          "Upload XLSX or CSV files. Columns will be mapped in the next step.",
+          style: TextStyle(color: Colors.grey),
         ),
       ],
     );
   }
 
   // ================= STEPS =================
-
   Widget _stepIndicator() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -98,16 +94,14 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   Widget _stepItem(int step, String label) {
-    final active = currentStep == step || currentStep > step;
+    final active = currentStep >= step;
     return Row(
       children: [
         CircleAvatar(
           radius: 14,
           backgroundColor: active ? Colors.blue : Colors.grey.shade300,
-          child: Text(
-            "$step",
-            style: const TextStyle(color: Colors.white, fontSize: 12),
-          ),
+          child: Text("$step",
+              style: const TextStyle(color: Colors.white, fontSize: 12)),
         ),
         const SizedBox(width: 8),
         Text(label),
@@ -120,25 +114,15 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   // ================= UPLOAD =================
-
   Widget _uploadCard() {
     return Container(
-      width: double.infinity,
       padding: const EdgeInsets.all(32),
-      decoration: _cardDecoration(dashed: true),
+      decoration: _cardDecoration(),
       child: Column(
         children: [
           const Icon(Icons.cloud_upload, size: 40, color: Colors.blue),
           const SizedBox(height: 12),
-          const Text(
-            "Click to upload or drag and drop",
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "XLSX, CSV or XLS (Max 10MB)",
-            style: TextStyle(fontSize: 12, color: Colors.grey),
-          ),
+          const Text("Upload CSV or XLSX"),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _pickFile,
@@ -163,9 +147,9 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
     setState(() {
       fileName = file.name;
       fileBytes = file.bytes;
-      currentStep = 2;
       previewHeaders.clear();
       previewRows.clear();
+      currentStep = 2;
     });
 
     if (file.extension == "csv") {
@@ -176,105 +160,65 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   // ================= PARSING =================
-
   void _parseCsv(Uint8List bytes) {
-    final csvString = String.fromCharCodes(bytes);
-    final rows = const CsvToListConverter().convert(csvString);
-
+    final rows =
+        const CsvToListConverter().convert(String.fromCharCodes(bytes));
     if (rows.isEmpty) return;
 
-    setState(() {
-      previewHeaders = rows.first.map((e) => e.toString()).toList();
+    final headers =
+        rows.first.map((e) => e.toString().trim()).toList();
 
-      previewRows = rows.skip(1).map((row) {
-        final Map<String, String> map = {};
-        for (int i = 0; i < previewHeaders.length; i++) {
-          map[previewHeaders[i]] = i < row.length ? row[i].toString() : "";
-        }
-        return map;
-      }).toList();
-    });
-  }
-
-  void _parseExcel(Uint8List bytes) {
-    final excelFile = excel.Excel.decodeBytes(bytes);
-
-    final sheet = excelFile.tables.values.first;
-
-    if (sheet == null || sheet.rows.isEmpty) return;
-
-    final headers = sheet.rows.first
-        .map((cell) => cell?.value.toString() ?? "")
-        .toList();
-
-    final rows = sheet.rows.skip(1).map((row) {
-      final Map<String, String> map = {};
+    final dataRows = rows.skip(1).map((row) {
+      final map = <String, String>{};
       for (int i = 0; i < headers.length; i++) {
-        map[headers[i]] = i < row.length ? row[i]?.value.toString() ?? "" : "";
+        map[headers[i]] =
+            i < row.length ? row[i]?.toString() ?? "" : "";
       }
       return map;
     }).toList();
 
     setState(() {
       previewHeaders = headers;
-      previewRows = rows;
+      previewRows = dataRows;
+    });
+  }
+
+  void _parseExcel(Uint8List bytes) {
+    final excelFile = excel.Excel.decodeBytes(bytes);
+    final sheet = excelFile.tables.values.first;
+    if (sheet == null || sheet.rows.isEmpty) return;
+
+    final headers = sheet.rows.first
+        .map((c) => c?.value.toString().trim() ?? "")
+        .toList();
+
+    final dataRows = sheet.rows.skip(1).map((row) {
+      final map = <String, String>{};
+      for (int i = 0; i < headers.length; i++) {
+        map[headers[i]] =
+            i < row.length ? row[i]?.value.toString() ?? "" : "";
+      }
+      return map;
+    }).toList();
+
+    setState(() {
+      previewHeaders = headers;
+      previewRows = dataRows;
     });
   }
 
   // ================= PREVIEW =================
-
   Widget _filePreviewSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _uploadedFileTile(),
-        const SizedBox(height: 16),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
-            Text("File Preview", style: TextStyle(fontWeight: FontWeight.w600)),
-            Text(
-              "Displaying first 5 rows",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
+        Text("Preview (first 5 rows)",
+            style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 12),
         _previewTable(),
         const SizedBox(height: 20),
         _footerActions(),
       ],
-    );
-  }
-
-  Widget _uploadedFileTile() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          const Icon(Icons.insert_drive_file, color: Colors.green),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              fileName ?? "",
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          IconButton(
-            onPressed: () {
-              setState(() {
-                fileBytes = null;
-                fileName = null;
-                previewHeaders.clear();
-                previewRows.clear();
-                currentStep = 1;
-              });
-            },
-            icon: const Icon(Icons.delete),
-          ),
-        ],
-      ),
     );
   }
 
@@ -285,7 +229,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
         children: [
           _tableHeader(),
           const Divider(height: 1),
-          ...previewRows.take(5).map(_tableRow).toList(),
+          ...previewRows.take(5).map(_tableRow),
         ],
       ),
     );
@@ -296,14 +240,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: previewHeaders
-            .map(
-              (h) => Expanded(
-                child: Text(
-                  h.toUpperCase(),
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-            )
+            .map((h) => Expanded(child: Text(h.toUpperCase())))
             .toList(),
       ),
     );
@@ -314,25 +251,27 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: previewHeaders
-            .map(
-              (h) => Expanded(
-                child: Text(row[h] ?? "", style: const TextStyle(fontSize: 12)),
-              ),
-            )
+            .map((h) => Expanded(child: Text(row[h] ?? "")))
             .toList(),
       ),
     );
   }
 
   // ================= FOOTER =================
-
   Widget _footerActions() {
+    final hasName =
+        previewHeaders.any((h) => h.toLowerCase().contains("name"));
+    final hasPhone =
+        previewHeaders.any((h) => h.toLowerCase().contains("phone"));
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        OutlinedButton(onPressed: () {}, child: const Text("Cancel")),
+        OutlinedButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel")),
         ElevatedButton(
-          onPressed: previewHeaders.isEmpty || previewRows.isEmpty
+          onPressed: (!hasName || !hasPhone)
               ? null
               : () {
                   Navigator.push(
@@ -340,8 +279,8 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
                     MaterialPageRoute(
                       builder: (_) => MapColumnsScreen(
                         excelHeaders: previewHeaders,
-                        sampleRow: previewRows.first,
                         previewRows: previewRows,
+                        backendFields: backendFields,
                       ),
                     ),
                   );
@@ -353,12 +292,11 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   }
 
   // ================= SHARED =================
-
-  BoxDecoration _cardDecoration({bool dashed = false}) {
+  BoxDecoration _cardDecoration() {
     return BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.grey.shade300, width: 1),
+      border: Border.all(color: Colors.grey.shade300),
     );
   }
 }

@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:truecaller/screens/web/base_layout.dart';
 import 'dart:convert';
 import 'dart:html' as html;
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:truecaller/screens/web/base_layout.dart';
 
 class CampaignLeadsScreen extends StatefulWidget {
   const CampaignLeadsScreen({super.key});
@@ -11,8 +13,68 @@ class CampaignLeadsScreen extends StatefulWidget {
 }
 
 class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
-  final List<Lead> leads = demoLeads;
+  List<Lead> leads = [];
+  bool loading = true;
+  bool _initialized = false;
+
+  int campaignId = 0;
+  String campaignName = '';
+
+  // ================= INIT =================
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_initialized) return;
+    _initialized = true;
+
+    final route = ModalRoute.of(context);
+    final args = route?.settings.arguments;
+
+    if (args is Map<String, dynamic>) {
+      campaignId = args['campaignId'] ?? 0;
+      campaignName = args['campaignName'] ?? 'Campaign';
+    }
+
+    if (campaignId > 0) {
+      _fetchLeads();
+    } else {
+      setState(() => loading = false);
+    }
+  }
+
+  // ================= API =================
+
+  Future<void> _fetchLeads() async {
+    setState(() {
+      loading = true;
+      leads = [];
+    });
+
+    final url = "http://localhost:3000/campaigns/$campaignId/leads";
+
+    try {
+      final res = await http.get(Uri.parse(url));
+      final json = jsonDecode(res.body);
+
+      if (json['success'] == true && json['data'] is List) {
+        setState(() {
+          leads = (json['data'] as List).map((e) => Lead.fromJson(e)).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Fetch leads error: $e");
+    }
+
+    setState(() => loading = false);
+  }
+
+  // ================= EXPORT =================
+
   void _exportLeads() {
+    if (leads.isEmpty) return;
+
     String csv = "Name,Company,Phone,Email,Status,Telecaller,Last Activity\n";
 
     for (final l in leads) {
@@ -24,69 +86,196 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
 
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute("download", "campaign_leads.csv")
       ..click();
 
     html.Url.revokeObjectUrl(url);
   }
 
+  // ================= IMPORT (UI ONLY) =================
+
   void _importLeads() {
     final uploadInput = html.FileUploadInputElement()..accept = '.csv';
     uploadInput.click();
 
-    uploadInput.onChange.listen((event) {
+    uploadInput.onChange.listen((_) {
       final file = uploadInput.files?.first;
       if (file == null) return;
 
       final reader = html.FileReader();
       reader.readAsText(file);
 
-      reader.onLoadEnd.listen((event) {
+      reader.onLoadEnd.listen((_) {
         final content = reader.result as String;
         final lines = const LineSplitter().convert(content);
 
-        // Skip header
-        final newLeads = lines.skip(1).map((line) {
+        final imported = lines.skip(1).map((line) {
           final values = line.split(',');
 
           return Lead(
-            name: values[0],
-            company: values[1],
-            phone: values[2],
-            email: values[3],
-            status: values[4],
-            telecaller: values[5],
-            lastActivity: values[6],
+            name: values.isNotEmpty ? values[0] : '',
+            company: values.length > 1 ? values[1] : '',
+            phone: values.length > 2 ? values[2] : '',
+            email: values.length > 3 ? values[3] : '',
+            status: values.length > 4 ? values[4] : 'New Lead',
+            telecaller: values.length > 5 ? values[5] : 'Unassigned',
+            lastActivity: values.length > 6 ? values[6] : '-',
           );
         }).toList();
 
         setState(() {
-          leads.addAll(newLeads);
+          leads.addAll(imported);
         });
       });
     });
   }
+
+  Future<void> _submitLead(
+    String name,
+    String phone,
+    String email,
+    String company,
+  ) async {
+    final url = "http://localhost:3000/campaigns/$campaignId/leads";
+
+    try {
+      final res = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "name": name,
+          "phone": phone,
+          "email": email,
+          "company": company,
+        }),
+      );
+
+      final json = jsonDecode(res.body);
+
+      if (json["success"] == true) {
+        _fetchLeads(); // 🔥 refresh table immediately
+      }
+    } catch (e) {
+      debugPrint("Add lead error: $e");
+    }
+  }
+
+  void _openAddLeadDialog() {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
+    final companyCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Add New Lead"),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
+              TextField(
+                controller: phoneCtrl,
+                decoration: const InputDecoration(labelText: "Phone"),
+              ),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(labelText: "Email"),
+              ),
+              TextField(
+                controller: companyCtrl,
+                decoration: const InputDecoration(labelText: "Company"),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              await _submitLead(
+                nameCtrl.text,
+                phoneCtrl.text,
+                emailCtrl.text,
+                companyCtrl.text,
+              );
+              Navigator.pop(context);
+            },
+            child: const Text("Save Lead"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveTableToBackend() async {
+    if (leads.isEmpty) return;
+
+    final url = "http://localhost:3000/campaigns/$campaignId/leads/bulk";
+
+    try {
+      final res = await http.post(
+        Uri.parse(url),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "leads": leads
+              .map(
+                (l) => {
+                  "name": l.name,
+                  "company": l.company,
+                  "phone": l.phone,
+                  "email": l.email,
+                  "status": l.status,
+                  "telecaller": l.telecaller,
+                },
+              )
+              .toList(),
+        }),
+      );
+
+      final json = jsonDecode(res.body);
+
+      if (json["success"] == true) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Saved ${json['count']} leads")));
+
+        // Optional: refresh from DB
+        _fetchLeads();
+      }
+    } catch (e) {
+      debugPrint("Bulk save error: $e");
+    }
+  }
+
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 2,
       child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 24),
-              _statsRow(),
-              const SizedBox(height: 20),
-              _filtersRow(),
-              const SizedBox(height: 20),
-              _tableCard(),
-            ],
-          ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 24),
+            _statsRow(),
+            const SizedBox(height: 20),
+            _filtersRow(),
+            const SizedBox(height: 20),
+            _tableCard(),
+          ],
         ),
       ),
     );
@@ -100,36 +289,36 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Campaigns > Q4 Renewal Drive > Leads",
+          children: [
+            const Text(
+              "Campaigns > Leads",
               style: TextStyle(fontSize: 12, color: Colors.grey),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
-              "Q4 Renewal Drive Leads",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              "$campaignName Leads",
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             ),
           ],
         ),
         Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none),
-              onPressed: () {},
-            ),
-            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _importLeads,
               icon: const Icon(Icons.upload_file),
               label: const Text("Import CSV"),
             ),
-
             const SizedBox(width: 12),
             ElevatedButton.icon(
-              onPressed: () {},
+              onPressed: _openAddLeadDialog,
               icon: const Icon(Icons.add),
               label: const Text("Add Lead"),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton.icon(
+              onPressed: _saveTableToBackend,
+              icon: const Icon(Icons.save),
+              label: const Text("Save to Campaign"),
             ),
           ],
         ),
@@ -144,10 +333,10 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
       spacing: 16,
       runSpacing: 16,
       children: [
-        _statCard("Total Leads", "2,540", "Target: 3,000"),
-        _statCard("Contacted", "1,620", "64%"),
-        _statCard("Qualified Leads", "342", "+21.1%"),
-        _statCard("Avg. Call Duration", "4m 12s", "+30s vs Avg"),
+        _statCard("Total Leads", leads.length.toString(), "Campaign total"),
+        _statCard("Contacted", "-", "-"),
+        _statCard("Qualified Leads", "-", "-"),
+        _statCard("Avg Call Duration", "-", "-"),
       ],
     );
   }
@@ -161,7 +350,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -181,9 +370,8 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         Expanded(
           child: TextField(
             decoration: InputDecoration(
-              hintText: "Search lead by name, phone or email...",
+              hintText: "Search by name, phone or email...",
               prefixIcon: const Icon(Icons.search),
-              isDense: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -191,24 +379,12 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        _dropdownButton("Status: All"),
-        const SizedBox(width: 12),
-        _dropdownButton("Telecaller: All"),
-        const SizedBox(width: 12),
         OutlinedButton.icon(
           onPressed: _exportLeads,
           icon: const Icon(Icons.download),
-          label: const Text("Export List"),
+          label: const Text("Export"),
         ),
       ],
-    );
-  }
-
-  Widget _dropdownButton(String text) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.filter_list),
-      label: Text(text),
     );
   }
 
@@ -221,9 +397,18 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         children: [
           _tableHeader(),
           const Divider(height: 1),
-          ...leads.map(_tableRow).toList(),
-          const Divider(height: 1),
-          _pagination(),
+          if (loading)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: CircularProgressIndicator(),
+            )
+          else if (leads.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(24),
+              child: Text("No leads found"),
+            )
+          else
+            ...leads.map(_tableRow),
         ],
       ),
     );
@@ -231,13 +416,13 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
 
   Widget _tableHeader() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: const [
-          Expanded(flex: 3, child: Text("LEAD NAME")),
-          Expanded(flex: 3, child: Text("CONTACT INFO")),
-          Expanded(flex: 2, child: Text("CAMPAIGN STATUS")),
-          Expanded(flex: 2, child: Text("ASSIGNED TELECALLER")),
+          Expanded(flex: 3, child: Text("LEAD")),
+          Expanded(flex: 3, child: Text("CONTACT")),
+          Expanded(flex: 2, child: Text("STATUS")),
+          Expanded(flex: 2, child: Text("TELECALLER")),
           Expanded(flex: 2, child: Text("LAST ACTIVITY")),
         ],
       ),
@@ -246,7 +431,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
 
   Widget _tableRow(Lead l) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      padding: const EdgeInsets.all(16),
       child: Row(
         children: [
           Expanded(
@@ -287,53 +472,19 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   }
 
   Widget _statusChip(String status) {
-    Color color;
-    switch (status) {
-      case "Interested":
-        color = Colors.orange;
-        break;
-      case "Converted":
-        color = Colors.green;
-        break;
-      case "Call Back":
-        color = Colors.purple;
-        break;
-      case "New Lead":
-        color = Colors.blue;
-        break;
-      default:
-        color = Colors.grey;
-    }
+    final color =
+        {
+          "Interested": Colors.orange,
+          "Converted": Colors.green,
+          "Call Back": Colors.purple,
+          "New Lead": Colors.blue,
+        }[status] ??
+        Colors.grey;
 
     return Chip(
       label: Text(status),
       backgroundColor: color.withOpacity(0.1),
       labelStyle: TextStyle(color: color),
-    );
-  }
-
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1 to 5 of 2,540 results"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 8),
-              Text("1"),
-              SizedBox(width: 8),
-              Text("2"),
-              SizedBox(width: 8),
-              Text("3"),
-              SizedBox(width: 8),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
@@ -348,7 +499,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   }
 }
 
-// ================= DEMO DATA =================
+// ================= MODEL =================
 
 class Lead {
   final String name;
@@ -368,25 +519,16 @@ class Lead {
     required this.telecaller,
     required this.lastActivity,
   });
-}
 
-final demoLeads = [
-  Lead(
-    name: "Sarah Miller",
-    company: "Director, TechCorp",
-    phone: "+1 (555) 123-4567",
-    email: "sarah.m@techcorp.com",
-    status: "Interested",
-    telecaller: "Jane Cooper",
-    lastActivity: "Today, 10:30 AM",
-  ),
-  Lead(
-    name: "Michael Chen",
-    company: "Manager, Solutions Inc.",
-    phone: "+1 (555) 987-6543",
-    email: "m.chen@solutions.inc",
-    status: "New Lead",
-    telecaller: "Unassigned",
-    lastActivity: "Yesterday",
-  ),
-];
+  factory Lead.fromJson(Map<String, dynamic> json) {
+    return Lead(
+      name: json['name']?.toString() ?? '',
+      company: json['company']?.toString() ?? '',
+      phone: json['phone']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      status: json['status']?.toString() ?? 'New Lead',
+      telecaller: json['telecaller']?.toString() ?? 'Unassigned',
+      lastActivity: json['last_activity']?.toString() ?? '-',
+    );
+  }
+}

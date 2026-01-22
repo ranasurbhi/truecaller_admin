@@ -1,8 +1,10 @@
 import 'dart:typed_data';
 import 'dart:convert';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class AddUserWebScreen extends StatefulWidget {
@@ -13,6 +15,8 @@ class AddUserWebScreen extends StatefulWidget {
 }
 
 class _AddUserWebScreenState extends State<AddUserWebScreen> {
+  static const String baseUrl = "http://localhost:3000";
+
   Uint8List? _profileImageBytes;
   String? _profileImageName;
 
@@ -20,15 +24,19 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
   final emailController = TextEditingController();
   final phoneController = TextEditingController();
   final passwordController = TextEditingController();
-  final roleController = TextEditingController();
   final teamController = TextEditingController();
   final dojController = TextEditingController();
+
+  String _selectedRole = "agent";
+
+  // ================= IMAGE PICK =================
 
   Future<void> _pickProfileImage() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
       withData: true,
     );
+
     if (result != null && result.files.single.bytes != null) {
       setState(() {
         _profileImageBytes = result.files.single.bytes!;
@@ -36,6 +44,8 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       });
     }
   }
+
+  // ================= SUBMIT =================
 
   Future<void> _submitUser() async {
     if (nameController.text.isEmpty ||
@@ -45,18 +55,19 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       return;
     }
 
-    const url = "http://10.37.119.118:3000/users/add-user";
+    final url = "$baseUrl/users/add-user";
 
     try {
       final request = http.MultipartRequest("POST", Uri.parse(url));
+
       request.fields.addAll({
-        "name": nameController.text,
-        "email": emailController.text,
-        "phone": phoneController.text,
+        "name": nameController.text.trim(),
+        "email": emailController.text.trim(),
+        "phone": phoneController.text.trim(),
         "password": passwordController.text,
-        "role": roleController.text,
-        "team": teamController.text,
-        "date_of_joining": dojController.text,
+        "role": _selectedRole,
+        "team": teamController.text.trim(),
+        "date_of_joining": dojController.text.trim(), // YYYY-MM-DD
       });
 
       if (_profileImageBytes != null) {
@@ -84,6 +95,8 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     }
   }
 
+  // ================= UI HELPERS =================
+
   void _showSuccess() {
     showDialog(
       context: context,
@@ -91,15 +104,19 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
         title: const Text("Success"),
         content: const Text("User added successfully"),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
         ],
       ),
     );
   }
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: Colors.red),
+    );
   }
 
   void _clearForm() {
@@ -107,14 +124,16 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     emailController.clear();
     phoneController.clear();
     passwordController.clear();
-    roleController.clear();
     teamController.clear();
     dojController.clear();
     setState(() {
+      _selectedRole = "agent";
       _profileImageBytes = null;
       _profileImageName = null;
     });
   }
+
+  // ================= BUILD =================
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +153,8 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     );
   }
 
+  // ================= HEADER =================
+
   Widget _header() {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,8 +162,10 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
         Text("Team Members > Add New",
             style: TextStyle(fontSize: 12, color: Colors.grey)),
         SizedBox(height: 8),
-        Text("Add New User Account",
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        Text(
+          "Add New User Account",
+          style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+        ),
         SizedBox(height: 4),
         Text(
           "Enter details to create a new account for a telecaller, assign roles and teams.",
@@ -151,6 +174,8 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       ],
     );
   }
+
+  // ================= FORM =================
 
   Widget _formCard() {
     return ConstrainedBox(
@@ -177,28 +202,23 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     );
   }
 
+  // ================= SECTIONS =================
+
   Widget _profileSection() {
     return Row(
       children: [
-        const SizedBox(
-          width: 260,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text("Profile Picture", style: TextStyle(fontWeight: FontWeight.w600)),
-              SizedBox(height: 4),
-              Text("Upload a photo to identify the user.",
-                  style: TextStyle(fontSize: 12, color: Colors.grey)),
-            ],
-          ),
+        _sectionInfo(
+          "Profile Picture",
+          "Upload a photo to identify the user.",
         ),
         const SizedBox(width: 24),
         Row(
           children: [
             CircleAvatar(
               radius: 40,
-              backgroundImage:
-              _profileImageBytes != null ? MemoryImage(_profileImageBytes!) : null,
+              backgroundImage: _profileImageBytes != null
+                  ? MemoryImage(_profileImageBytes!)
+                  : null,
               child: _profileImageBytes == null
                   ? const Icon(Icons.person, size: 40)
                   : null,
@@ -215,7 +235,7 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  _profileImageName ?? "Click to upload or drag and drop",
+                  _profileImageName ?? "Click to upload image",
                   style: const TextStyle(color: Colors.blue),
                 ),
               ),
@@ -229,19 +249,31 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
   Widget _personalDetails() {
     return Row(
       children: [
-        _sectionInfo("Personal Details",
-            "Basic identification information for the new user."),
+        _sectionInfo(
+          "Personal Details",
+          "Basic identification information for the user.",
+        ),
         const SizedBox(width: 24),
         Expanded(
           child: Column(
             children: [
-              _row(nameController, emailController, "Full Name", "Email Address"),
+              _row(
+                nameController,
+                emailController,
+                "Full Name",
+                "Email Address",
+              ),
               const SizedBox(height: 12),
-              _row(phoneController, passwordController, "Phone Number", "Password",
-                  obscureSecond: true),
+              _row(
+                phoneController,
+                passwordController,
+                "Phone Number",
+                "Password",
+                obscureSecond: true,
+              ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
@@ -249,37 +281,69 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
   Widget _roleSection() {
     return Row(
       children: [
-        _sectionInfo("Role & Assignment",
-            "Define the user's responsibilities and team."),
+        _sectionInfo(
+          "Role & Assignment",
+          "Define role and team assignment.",
+        ),
         const SizedBox(width: 24),
         Expanded(
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _input("Assign Role", roleController),
+              const Text("Assign Role", style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 6),
+              DropdownButtonFormField<String>(
+                value: _selectedRole,
+                decoration: InputDecoration(
+                  isDense: true,
+                  border:
+                      OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                items: const [
+                  DropdownMenuItem(value: "agent", child: Text("Agent")),
+                  DropdownMenuItem(value: "manager", child: Text("Manager")),
+                  DropdownMenuItem(value: "admin", child: Text("Admin")),
+                ],
+                onChanged: (v) => setState(() => _selectedRole = v!),
+              ),
               const SizedBox(height: 12),
-              _row(teamController, dojController,
-                  "Team Assignment (Optional)", "Date of Joining (Optional)"),
+              _row(
+                teamController,
+                dojController,
+                "Team (Optional)",
+                "Date of Joining (YYYY-MM-DD)",
+              ),
             ],
           ),
-        )
+        ),
       ],
     );
   }
 
-  Widget _sectionInfo(String t, String d) => SizedBox(
-    width: 260,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(height: 4),
-        Text(d, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-      ],
-    ),
-  );
+  // ================= COMMON WIDGETS =================
 
-  Widget _row(TextEditingController a, TextEditingController b, String la, String lb,
-      {bool obscureSecond = false}) {
+  Widget _sectionInfo(String title, String desc) {
+    return SizedBox(
+      width: 260,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text(desc,
+              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _row(
+    TextEditingController a,
+    TextEditingController b,
+    String la,
+    String lb, {
+    bool obscureSecond = false,
+  }) {
     return Row(
       children: [
         Expanded(child: _input(la, a)),
@@ -289,7 +353,11 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
     );
   }
 
-  Widget _input(String label, TextEditingController c, {bool obscure = false}) {
+  Widget _input(
+    String label,
+    TextEditingController c, {
+    bool obscure = false,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -299,8 +367,9 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
           controller: c,
           obscureText: obscure,
           decoration: InputDecoration(
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             isDense: true,
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
       ],
@@ -316,32 +385,17 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       children: [
         OutlinedButton(
           onPressed: _clearForm,
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
           child: const Text("Cancel"),
         ),
         const SizedBox(width: 12),
         ElevatedButton.icon(
           onPressed: _submitUser,
-          icon: const Icon(Icons.check, size: 18, color: Colors.white),
-          label: const Text(
-            "Add User",
-            style: TextStyle(color: Colors.white),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          icon: const Icon(Icons.check, color: Colors.white),
+          label:
+              const Text("Add User", style: TextStyle(color: Colors.white)),
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
         ),
       ],
     );
   }
-
 }

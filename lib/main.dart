@@ -6,7 +6,7 @@ import 'package:truecaller/screens/web/campaign_lead.dart';
 import 'package:truecaller/screens/web/create_template.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
-import 'package:truecaller/screens/web/leads_activity_log.dart';
+// import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/login_screen.dart';
 import 'package:truecaller/screens/web/team_member.dart';
 import 'package:truecaller/screens/web/template_list.dart';
@@ -36,7 +36,11 @@ class MyApp extends StatelessWidget {
             '/edit-user': (context) =>  EditUserScreen(),
             '/campaign-lead': (context) =>  CampaignLeadsScreen(),
             '/campaign': (context) =>  CampaignManagementWebScreen(),
-            '/activity-log': (context) =>  LeadActivityScreen(),
+//             '/activity-log': (context) {
+//   final leadId = ModalRoute.of(context)!.settings.arguments as int;
+//   return LeadActivityScreen(leadId: leadId);
+// },
+
             '/msg-template': (context) =>  MessageTemplatesScreen(),
             '/create-template': (context) =>  CreateWhatsappTemplateScreen(),
             '/upload-leads': (context) =>  UploadLeadsScreen(),
