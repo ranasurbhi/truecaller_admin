@@ -1,10 +1,14 @@
+import 'dart:convert';
+import 'dart:html' as html;
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/components/agent_table.dart';
 import 'package:truecaller/components/stat_card.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
-import '../../services/api_service.dart';
-import '../../models/call_summary.dart';
+
 import '../../models/agent.dart';
+import '../../models/call_summary.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,6 +18,8 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
+  static const String apiUrl = "http://localhost:3000/web/dashboard";
+
   CallSummary? summary;
   List<Agent> agents = [];
   bool loading = true;
@@ -21,20 +27,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadDashboardData();
   }
 
-  Future<void> _loadData() async {
+  // ================= API =================
+
+  Future<void> _loadDashboardData() async {
     setState(() => loading = true);
 
     try {
-      final data = await ApiService.fetchDashboardData();
-      if (mounted) {
+      final response = await http.get(Uri.parse(apiUrl));
+      final data = jsonDecode(response.body);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200 && data["success"] == true) {
         setState(() {
-          summary = ApiService.parseSummary(data);
-          agents = ApiService.parseAgents(data['agents']);
+          summary = CallSummary.fromJson({
+            "totalCalls": data["summary"]["totalCalls"],
+            "connected": data["summary"]["connected"],
+            "missedCalls": data["summary"]["missedCalls"],
+            "avgDuration": data["summary"]["avgDuration"],
+          });
+
+          agents = (data["agents"] as List)
+              .map((e) => Agent.fromJson(e))
+              .toList();
           loading = false;
         });
+      } else {
+        loading = false;
       }
     } catch (e) {
       debugPrint("Dashboard error: $e");
@@ -42,57 +64,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  // ================= EXPORT =================
+
+  void _exportDashboardReport() {
+    if (agents.isEmpty) return;
+
+    String csv =
+        "Agent Name,Status,Total Calls,Connected,Missed,Average Duration\n";
+
+    for (final agent in agents) {
+      csv +=
+          "${agent.name},"
+          "${agent.status},"
+          "${agent.totalCalls},"
+          "${agent.connected},"
+          "${agent.missed},"
+          "${agent.avgDurationFormatted}\n";
+    }
+
+    final bytes = utf8.encode(csv);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+
+    html.AnchorElement(href: url)
+      ..setAttribute("download", "agent_performance_report.csv")
+      ..click();
+
+    html.Url.revokeObjectUrl(url);
+  }
+
+  // ================= UI =================
+
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 0,
       child: Padding(
         padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(context),
-            const SizedBox(height: 20),
-            loading
-                ? const Center(child: CircularProgressIndicator())
-                : summary != null
-                ? _statsRow(context, summary!)
-                : const Center(child: Text('No data available')),
-            const SizedBox(height: 24),
-            loading ? const SizedBox() : AgentPerformanceTable(agents: agents),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(context),
+              const SizedBox(height: 20),
+          
+              if (loading)
+                const Center(child: CircularProgressIndicator())
+              else if (summary != null)
+                _statsRow(context, summary!)
+              else
+                const Center(child: Text("No data available")),
+          
+              const SizedBox(height: 24),
+          
+              if (!loading)
+                AgentPerformanceTable(agents: agents),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ---------------- HEADER ----------------
+  // ================= HEADER =================
 
   Widget _header(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
 
     return width < 700
         ? Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _headerText(),
-        const SizedBox(height: 12),
-        _exportButton(),
-      ],
-    )
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _headerText(),
+              const SizedBox(height: 12),
+              _exportButton(),
+            ],
+          )
         : Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _headerText(),
-        _exportButton(),
-      ],
-    );
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _headerText(),
+              _exportButton(),
+            ],
+          );
   }
 
   Widget _headerText() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: const [
+      children: [
         Text(
           "Daily Overview",
           style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
@@ -108,7 +168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _exportButton() {
     return ElevatedButton.icon(
-      onPressed: () {},
+      onPressed: agents.isEmpty ? null : _exportDashboardReport,
       icon: const Icon(Icons.download, size: 18, color: Colors.white),
       label: const Text(
         "Export Report",
@@ -124,7 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ---------------- STATS ----------------
+  // ================= STATS =================
 
   Widget _statsRow(BuildContext context, CallSummary summary) {
     return LayoutBuilder(
@@ -145,7 +205,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               StatCard(
                 title: "Total Calls",
                 value: summary.totalCalls.toString(),
-                subtitle: "+12% vs yesterday",
+                subtitle: "All agents",
                 icon: Icons.phone,
                 positive: true,
               ),
@@ -155,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               StatCard(
                 title: "Connected",
                 value: summary.connected.toString(),
-                subtitle: "+5% vs avg",
+                subtitle: "Successful calls",
                 icon: Icons.call,
                 positive: true,
               ),
@@ -164,8 +224,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               cardWidth,
               StatCard(
                 title: "Avg Duration",
-                value: formatDuration((summary.avgDuration * 60).round()),
-                subtitle: "+30s improvement",
+                value: formatDuration(
+                  (summary.avgDuration * 60).round(),
+                ),
+                subtitle: "Across agents",
                 icon: Icons.timer,
                 positive: true,
               ),
@@ -175,7 +237,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               StatCard(
                 title: "Missed Calls",
                 value: summary.missedCalls.toString(),
-                subtitle: "-2% (Good)",
+                subtitle: "Needs attention",
                 icon: Icons.call_missed,
                 positive: false,
               ),

@@ -1,18 +1,88 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class EditUserScreen extends StatefulWidget {
-  const EditUserScreen({super.key});
+  final String userId;
+
+  const EditUserScreen({super.key, required this.userId});
 
   @override
   State<EditUserScreen> createState() => _EditUserScreenState();
 }
 
 class _EditUserScreenState extends State<EditUserScreen> {
+  static const String baseUrl = "http://localhost:3000";
+
   Uint8List? _profileImageBytes;
   bool isActive = true;
+  bool loading = true;
+
+  // Controllers
+  final nameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final roleCtrl = TextEditingController();
+  final teamCtrl = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  /* ================= API ================= */
+
+  Future<void> _loadUser() async {
+    final res =
+        await http.get(Uri.parse("$baseUrl/web/users/${widget.userId}"));
+    final data = jsonDecode(res.body)['data'];
+
+    setState(() {
+      nameCtrl.text = data['name'] ?? '';
+      emailCtrl.text = data['email'] ?? '';
+      phoneCtrl.text = data['phone'] ?? '';
+      roleCtrl.text = data['role'] ?? '';
+      teamCtrl.text = data['team'] ?? '';
+      isActive = data['status'] == "Active";
+      loading = false;
+    });
+  }
+
+  Future<void> _saveChanges() async {
+    final req = http.MultipartRequest(
+      "PUT",
+      Uri.parse("$baseUrl/web/users/${widget.userId}"),
+    );
+
+    req.fields.addAll({
+      "name": nameCtrl.text,
+      "email": emailCtrl.text,
+      "phone": phoneCtrl.text,
+      "role": roleCtrl.text,
+      "team": teamCtrl.text,
+      "status": isActive ? "Active" : "Inactive",
+    });
+
+    if (_profileImageBytes != null) {
+      req.files.add(
+        http.MultipartFile.fromBytes(
+          "profile_image",
+          _profileImageBytes!,
+          filename: "profile.png",
+        ),
+      );
+    }
+
+    await req.send();
+
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/team-member');
+    }
+  }
 
   Future<void> _pickProfileImage() async {
     final result = await FilePicker.platform.pickFiles(
@@ -31,39 +101,41 @@ class _EditUserScreenState extends State<EditUserScreen> {
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 1,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 1000) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(width: 320, child: _leftProfileCard()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _rightContent()),
-                      ],
-                    );
-                  }
-                  return Column(
-                    children: [
-                      _leftProfileCard(),
-                      const SizedBox(height: 24),
-                      _rightContent(),
-                    ],
-                  );
-                },
+      child: loading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _header(),
+                    const SizedBox(height: 24),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        if (constraints.maxWidth > 1000) {
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(width: 320, child: _leftProfileCard()),
+                              const SizedBox(width: 24),
+                              Expanded(child: _rightContent()),
+                            ],
+                          );
+                        }
+                        return Column(
+                          children: [
+                            _leftProfileCard(),
+                            const SizedBox(height: 24),
+                            _rightContent(),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -94,27 +166,23 @@ class _EditUserScreenState extends State<EditUserScreen> {
         ),
         Row(
           children: [
-            OutlinedButton(onPressed: () {}, 
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pushReplacementNamed(context, '/team-member');
+              },
+              child: const Text("Cancel"),
             ),
-        ),
-        child: const Text("Cancel"),
-        ),
             const SizedBox(width: 12),
             ElevatedButton.icon(
-          onPressed: () {},
-          label: const Text("Save Changes",style: TextStyle(color:Colors.white),),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              onPressed: _saveChanges,
+              label: const Text(
+                "Save Changes",
+                style: TextStyle(color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue,
+              ),
             ),
-          ),
-        ),
           ],
         ),
       ],
@@ -145,106 +213,28 @@ class _EditUserScreenState extends State<EditUserScreen> {
                     right: 0,
                     child: InkWell(
                       onTap: _pickProfileImage,
-                      child: CircleAvatar(
+                      child: const CircleAvatar(
                         radius: 14,
                         backgroundColor: Colors.blue,
-                        child: const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: Colors.white,
-                        ),
+                        child:
+                            Icon(Icons.edit, size: 14, color: Colors.white),
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 12),
-              const Text(
-                "Sarah Jenkins",
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              Text(nameCtrl.text,
+                  style: const TextStyle(fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
-              const Text(
-                "Telecaller Agent",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              Text(roleCtrl.text,
+                  style:
+                      const TextStyle(fontSize: 12, color: Colors.grey)),
               const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Chip(
-                    label: Text("Active"),
-                    backgroundColor: Color(0xFFE7F6EC),
-                    labelStyle: TextStyle(color: Colors.green),
-                  ),
-                ],
-              ),
-              const Divider(height: 32),
-              _infoRow("Joined", "Oct 24, 2023"),
-              const SizedBox(height: 8),
-              _infoRow("Last Login", "2 hours ago"),
-            ],
-          ),
-        ),
-        SizedBox(height: 10),
-        _card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Account Status",
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-
-              SizedBox(height: 10),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Active User", style: TextStyle(fontSize: 13)),
-                      const Text(
-                        "User can login and perform actions",
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  Transform.scale(
-                    scale: 0.7, // 1.0 = default, try 0.7–0.9
-                    child: Switch(
-                      value: isActive,
-                      onChanged: (v) {
-                        setState(() => isActive = v);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Delete Account",
-                        style: TextStyle(color: Colors.red, fontSize: 13),
-                      ),
-                      Text(
-                        "Permanently remove this user",
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(Icons.delete, color: Colors.red),
-                  ),
-                ],
+              Chip(
+                label: Text(isActive ? "Active" : "Inactive"),
+                backgroundColor:
+                    isActive ? const Color(0xFFE7F6EC) : Colors.grey.shade200,
               ),
             ],
           ),
@@ -275,15 +265,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
       icon: Icons.person_outline,
       child: Column(
         children: [
-          _input("Full Name", "Sarah Jenkins"),
+          _input("Full Name", nameCtrl),
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(
-                child: _input("Email Address", "sarah.jenkins@company.com"),
-              ),
+              Expanded(child: _input("Email Address", emailCtrl)),
               const SizedBox(width: 16),
-              Expanded(child: _input("Phone Number", "+1 (555) 000-1234")),
+              Expanded(child: _input("Phone Number", phoneCtrl)),
             ],
           ),
         ],
@@ -299,14 +287,13 @@ class _EditUserScreenState extends State<EditUserScreen> {
         children: [
           Row(
             children: [
-              Expanded(child: _input("Assigned Role", "Telecaller Agent")),
+              Expanded(child: _input("Assigned Role", roleCtrl)),
               const SizedBox(width: 16),
-              Expanded(child: _input("Reports To", "Dwight Schrute")),
+              Expanded(child: _input("Reports To", TextEditingController())),
             ],
           ),
           const SizedBox(height: 12),
-          _input("Team Assignment", "Sales - North Region"),
-          const SizedBox(height: 16),
+          _input("Team Assignment", teamCtrl),
         ],
       ),
     );
@@ -318,24 +305,10 @@ class _EditUserScreenState extends State<EditUserScreen> {
       icon: Icons.lock_outline,
       child: Column(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Password (Last changed 3 months ago)"),
-              TextButton(onPressed: () {}, child: const Text("Reset Password")),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _input("New Password", "********", obscure: true),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _input("Confirm Password", "********", obscure: true),
-              ),
-            ],
+          SwitchListTile(
+            value: isActive,
+            onChanged: (v) => setState(() => isActive = v),
+            title: const Text("Active User"),
           ),
         ],
       ),
@@ -358,7 +331,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
           if (title != null)
             Row(
               children: [
-                if (icon != null) Icon(icon, size: 18, color: Colors.blue),
+                if (icon != null)
+                  Icon(icon, size: 18, color: Colors.blue),
                 if (icon != null) const SizedBox(width: 8),
                 Text(
                   title,
@@ -373,34 +347,20 @@ class _EditUserScreenState extends State<EditUserScreen> {
     );
   }
 
-  Widget _input(String label, String value, {bool obscure = false}) {
+  Widget _input(String label, TextEditingController c) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 12)),
         const SizedBox(height: 6),
         TextField(
-          obscureText: obscure,
+          controller: c,
           decoration: InputDecoration(
-            hintText: value,
             isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _infoRow(String a, String b) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(a, style: const TextStyle(color: Colors.grey)),
-        Text(b),
       ],
     );
   }

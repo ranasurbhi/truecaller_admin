@@ -1,103 +1,159 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:truecaller/models/team_member.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
+/* ================= MODEL ================= */
+
+class TeamMember {
+  final String id;
+  final String name;
+  final String role;
+  final String email;
+  final String joiningDate;
+  final String status;
+
+  TeamMember({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.email,
+    required this.joiningDate,
+    required this.status,
+  });
+
+  factory TeamMember.fromJson(Map<String, dynamic> json) {
+    return TeamMember(
+      id: json['id'].toString(),
+      name: json['name'] ?? '',
+      role: json['role'] ?? '',
+      email: json['email'] ?? '',
+      joiningDate: json['joiningDate'] ?? '—',
+      status: json['status'] ?? 'Offline',
+    );
+  }
+}
+
+/* ================= SCREEN ================= */
+
 class TeamMembersScreen extends StatefulWidget {
-  TeamMembersScreen({super.key});
+  const TeamMembersScreen({super.key});
 
   @override
   State<TeamMembersScreen> createState() => _TeamMembersScreenState();
 }
 
 class _TeamMembersScreenState extends State<TeamMembersScreen> {
+  static const String baseUrl = "http://localhost:3000";
+
+  bool _loading = true;
+
   String _selectedRole = "All Roles";
-
   String _selectedStatus = "Active";
+  String _search = "";
 
-  final List<TeamMember> members = [
-    TeamMember(
-      name: "Sarah Jenkins",
-      role: "Senior Telecaller",
-      email: "s.jenkins@example.com",
-      joiningDate: "Jan 15, 2021",
-      status: "Active",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Offline",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Break",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Offline",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Break",
-    ),
-  ];
+  List<TeamMember> members = [];
 
-  final _statcolor = {
+  int totalMembers = 0;
+  int activeMembers = 0;
+  int avgPerformance = 0;
+
+  final Map<String, Color> _statcolor = {
     'Active': Colors.green,
-    'Break': Colors.amber,
     'Offline': Colors.deepPurple,
+    'Break': Colors.amber,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+    _loadStats(); // optional
+  }
+
+  /* ================= API ================= */
+
+  Future<void> _loadMembers() async {
+    try {
+      setState(() => _loading = true);
+
+      final uri = Uri.parse("$baseUrl/web/users").replace(
+        queryParameters: {
+          if (_search.isNotEmpty) "search": _search,
+          if (_selectedRole != "All Roles") "role": _selectedRole,
+          "status": _selectedStatus,
+        },
+      );
+
+      final res = await http.get(uri);
+      final body = jsonDecode(res.body);
+
+      final List list = body['data'] ?? [];
+
+      setState(() {
+        members = list.map((e) => TeamMember.fromJson(e)).toList();
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint("LOAD MEMBERS ERROR: $e");
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final res = await http.get(Uri.parse("$baseUrl/web/users/stats"));
+      final json = jsonDecode(res.body)['data'];
+
+      setState(() {
+        totalMembers = json['totalMembers'] ?? 0;
+        activeMembers = json['activeMembers'] ?? 0;
+        avgPerformance = json['avgPerformance'] ?? 0;
+      });
+    } catch (_) {
+      // Stats are optional — do NOT block UI
+    }
+  }
+
+  /* ================= UI ================= */
 
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 1,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _header(),
-            const SizedBox(height: 20),
-            _statsRow(),
-            const SizedBox(height: 20),
-            Container(
-              padding: EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: _filtersRow(context),
-            ),
-            const SizedBox(height: 16),
-            _membersTable(),
-          ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _header(),
+              const SizedBox(height: 20),
+              _statsRow(),
+              const SizedBox(height: 20),
+              _filtersRow(),
+              const SizedBox(height: 16),
+              _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _membersTable(),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  // ================= HEADER =================
+  /* ================= HEADER ================= */
+
   Widget _header() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Team Members",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-            ),
+          children: [
+            Text("Team Members",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
             SizedBox(height: 4),
             Text(
               "Manage your telecalling team, view performance, and edit profiles.",
@@ -105,221 +161,115 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
             ),
           ],
         ),
-
         ElevatedButton.icon(
-          onPressed: () => Navigator.pushReplacementNamed(context, '/add-user'),
-          label: const Text(
-            "Add New Member",
-            style: TextStyle(color: Colors.white),
-          ),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+          onPressed: () =>
+              Navigator.pushReplacementNamed(context, '/add-user'),
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text("Add New Member",
+              style: TextStyle(color: Colors.white)),
         ),
       ],
     );
   }
 
-  // ================= STATS =================
+  /* ================= STATS ================= */
+
   Widget _statsRow() {
     return Wrap(
       spacing: 16,
-      runSpacing: 16,
-      children: const [
-        _StatCard(
-          title: "Total Members",
-          value: "42",
-          subtitle: "+2 this week",
-        ),
-        _StatCard(title: "Active Now", value: "12", subtitle: "Online"),
-        _StatCard(title: "Avg Performance", value: "88%", subtitle: "+1.2%"),
-      ],
-    );
-  }
-
-  // ================= FILTERS =================
-  Widget _filtersRow(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmall = screenWidth < 900;
-
-    if (isSmall) {
-      /// 🔹 Mobile / small width → STACKED
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [_searchField(), const SizedBox(height: 12), _rightFilters()],
-      );
-    }
-
-    /// 🔹 Desktop / large width → SINGLE ROW
-    return Row(
       children: [
-        SizedBox(width: 260, child: _searchField()),
-        const Spacer(),
-        _rightFilters(),
+        _StatCard("Total Members", totalMembers.toString()),
+        _StatCard("Active Now", activeMembers.toString()),
+        _StatCard("Avg Performance", "$avgPerformance%"),
       ],
     );
   }
 
-  Widget _searchField() {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: "Search by name, email or role...",
-        prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
+  /* ================= FILTERS ================= */
 
-  Widget _rightFilters() {
+  Widget _filtersRow() {
     return Row(
       children: [
         SizedBox(
-          width: 140,
-          child: _dropdown(_selectedRole, [
-            "All Roles",
-            "Telecaller",
-            "Manager",
-          ], (val) => setState(() => _selectedRole = val)),
+          width: 260,
+          child: TextField(
+            decoration: const InputDecoration(
+              hintText: "Search...",
+              prefixIcon: Icon(Icons.search),
+            ),
+            onChanged: (v) {
+              _search = v;
+              _loadMembers();
+            },
+          ),
         ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 140,
-          child: _dropdown(_selectedStatus, [
-            "Active",
-            "Inactive",
-          ], (val) => setState(() => _selectedStatus = val)),
-        ),
-        const SizedBox(width: 8),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.grid_view)),
-        IconButton(onPressed: () {}, icon: const Icon(Icons.list)),
       ],
     );
   }
 
-  Widget _dropdown(
-    String value,
-    List<String> items,
-    Function(String) onChanged,
-  ) {
-    return SizedBox(
-      height: 40,
-      child: DropdownButtonFormField<String>(
-        value: value,
-        isDense: true,
-        decoration: InputDecoration(
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        items: items
-            .map((item) => DropdownMenuItem(value: item, child: Text(item)))
-            .toList(),
-        onChanged: (val) {
-          if (val != null) onChanged(val);
-        },
-      ),
-    );
-  }
+  /* ================= TABLE ================= */
 
-  // ================= TABLE =================
   Widget _membersTable() {
+    return DataTable(
+      columns: const [
+        DataColumn(label: Text("Member")),
+        DataColumn(label: Text("Role")),
+        DataColumn(label: Text("Email")),
+        DataColumn(label: Text("Joining")),
+        DataColumn(label: Text("Status")),
+      ],
+      rows: members.map((m) {
+        final color = _statcolor[m.status] ?? Colors.grey;
+        return DataRow(
+          cells: [
+            DataCell(
+              GestureDetector(
+                onTap: () => Navigator.pushReplacementNamed(
+                  context,
+                  '/edit-user',
+                  arguments: m.id,
+                ),
+                child: Text(m.name),
+              ),
+            ),
+            DataCell(Text(m.role)),
+            DataCell(Text(m.email)),
+            DataCell(Text(m.joiningDate)),
+            DataCell(Text(m.status,
+                style: TextStyle(color: color))),
+          ],
+        );
+      }).toList(),
+    );
+  }
+}
+
+/* ================= STAT CARD ================= */
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final String value;
+
+  const _StatCard(this.title, this.value);
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      width: 220,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-          columns: const [
-            DataColumn(label: Text("Member")),
-            DataColumn(label: Text("Role")),
-            DataColumn(label: Text("Contact")),
-            DataColumn(label: Text("Date of Joining")),
-            DataColumn(label: Text("Status")),
-            DataColumn(label: Text("Action")),
-          ],
-          rows: members.map((member) {
-            return DataRow(
-              cells: [
-                DataCell(
-                  GestureDetector(
-                    child: Text(member.name),
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/edit-user'),
-                  ),
-                ),
-                DataCell(Text(member.role)),
-                DataCell(Text(member.email)),
-                DataCell(Text(member.joiningDate)),
-                DataCell(
-                  Container(
-                    padding: EdgeInsets.all(5),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: _statcolor[member.status]!.shade100,
-                    ),
-                    child: Text(
-                      member.status,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: _statcolor[member.status],
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ),
-                const DataCell(Icon(Icons.more_vert)),
-              ],
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-}
-
-// ================= STAT CARD =================
-
-class _StatCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String subtitle;
-
-  const _StatCard({
-    required this.title,
-    required this.value,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 4),
-            Text(subtitle, style: const TextStyle(color: Colors.green)),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 6),
+          Text(value,
+              style:
+                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        ],
       ),
     );
   }

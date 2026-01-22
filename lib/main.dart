@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/add_user.dart';
 import 'package:truecaller/screens/web/campaign.dart';
 import 'package:truecaller/screens/web/campaign_lead.dart';
+import 'package:truecaller/screens/web/create_campaign_screen.dart';
 import 'package:truecaller/screens/web/create_template.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
-import 'package:truecaller/screens/web/leads_activity_log.dart';
 import 'package:truecaller/screens/web/team_member.dart';
-import 'package:truecaller/screens/web/create_campaign_screen.dart';
 import 'package:truecaller/screens/web/template_list.dart';
 import 'package:truecaller/screens/web/upload_leads.dart';
 
@@ -21,16 +20,17 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Telecaller Admin',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
       ),
       initialRoute: '/',
       onGenerateRoute: (settings) {
-        // Campaign Leads screen with required parameters
+        // ---------------- CAMPAIGN LEADS ----------------
         if (settings.name == '/campaign-lead') {
           final args = settings.arguments as Map<String, dynamic>;
+
           return MaterialPageRoute(
             builder: (context) => CampaignLeadsScreen(
               campaignId: args['campaignId'],
@@ -40,31 +40,58 @@ class MyApp extends StatelessWidget {
         }
 
         switch (settings.name) {
+          // ---------------- DASHBOARD ----------------
           case '/':
             return MaterialPageRoute(
-                builder: (context) => const DashboardScreen());
+              builder: (context) => const DashboardScreen(),
+            );
+
+          // ---------------- USERS ----------------
+          case '/team-member':
+            return MaterialPageRoute(
+              builder: (context) => TeamMembersScreen(),
+            );
+
           case '/add-user':
             return MaterialPageRoute(
-                builder: (context) => const AddUserWebScreen());
-          case '/team-member':
-            return MaterialPageRoute(builder: (context) => TeamMembersScreen());
-          case '/create-campaign':
-            return MaterialPageRoute(
-                builder: (context) => const CreateCampaignScreen());
+              builder: (context) => const AddUserWebScreen(),
+            );
+
           case '/edit-user':
-            return MaterialPageRoute(builder: (context) => EditUserScreen());
+            final String userId = settings.arguments as String; // ✅ FIX
+            return MaterialPageRoute(
+              builder: (context) => EditUserScreen(userId: userId),
+            );
+
+          // ---------------- CAMPAIGNS ----------------
           case '/campaign':
             return MaterialPageRoute(
-                builder: (context) => const CampaignManagementWebScreen());
+              builder: (context) =>
+                  const CampaignManagementWebScreen(),
+            );
+
+          case '/create-campaign':
+            return MaterialPageRoute(
+              builder: (context) => const CreateCampaignScreen(),
+            );
+
+          // ---------------- TEMPLATES ----------------
           case '/msg-template':
             return MaterialPageRoute(
-                builder: (context) => MessageTemplatesScreen());
+              builder: (context) => MessageTemplatesScreen(),
+            );
+
           case '/create-template':
             return MaterialPageRoute(
-                builder: (context) => CreateWhatsappTemplateScreen());
+              builder: (context) =>
+                  CreateWhatsappTemplateScreen(),
+            );
+
           case '/upload-leads':
             return MaterialPageRoute(
-                builder: (context) => UploadLeadsScreen());
+              builder: (context) => UploadLeadsScreen(),
+            );
+
           default:
             return null;
         }
