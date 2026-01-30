@@ -2,125 +2,149 @@ import 'package:flutter/material.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'package:http/http.dart' as http;
 
-class AgentPerformanceScreen extends StatelessWidget {
-  const AgentPerformanceScreen({super.key});
+class AgentPerformanceScreen extends StatefulWidget {
+  final int agentId;
+  final String agentName;
 
-  // ================= DEMO DATA =================
+  const AgentPerformanceScreen({
+    super.key,
+    required this.agentId,
+    required this.agentName,
+  });
 
-  final Map<String, dynamic> agentInfo = const {
-    "name": "Sarah Jenkins",
-    "date": "Oct 24, 2023",
-  };
+  @override
+  State<AgentPerformanceScreen> createState() =>
+      _AgentPerformanceScreenState();
+}
 
-  final Map<String, dynamic> callSummary = const {
-    "total": 85,
-    "connected": 42,
-    "missed": 43,
-  };
+class _AgentPerformanceScreenState extends State<AgentPerformanceScreen> {
+  bool loading = true;
+  Map<String, dynamic>? data;
 
-  final Map<String, String> timeActivity = const {
-    "totalDuration": "3h 45m",
-    "avgDuration": "2m 15s",
-    "firstCall": "09:02 AM",
-    "lastCall": "05:45 PM",
-  };
+  DateTime selectedDate = DateTime.now();
 
-  final List<Map<String, dynamic>> activityLogs = const [
-    {
-      "name": "John Doe",
-      "company": "Acme Corp",
-      "phone": "+1 (555) 123-4567",
-      "time": "05:45 PM",
-      "duration": "05m 12s",
-      "status": "Connected",
-    },
-    {
-      "name": "Alice Smith",
-      "company": "Tech Solutions",
-      "phone": "+1 (555) 987-6543",
-      "time": "04:30 PM",
-      "duration": "--",
-      "status": "No Answer",
-    },
-    {
-      "name": "Robert Johnson",
-      "company": "Global Inc.",
-      "phone": "+1 (555) 456-7890",
-      "time": "02:15 PM",
-      "duration": "12m 45s",
-      "status": "Meeting Booked",
-    },
-    {
-      "name": "Emily Miller",
-      "company": "Startup Hub",
-      "phone": "+1 (555) 222-3333",
-      "time": "11:00 AM",
-      "duration": "02m 10s",
-      "status": "Callback",
-    },
-  ];
+  String get formattedDate {
+    return "${selectedDate.year.toString().padLeft(4, '0')}-"
+        "${selectedDate.month.toString().padLeft(2, '0')}-"
+        "${selectedDate.day.toString().padLeft(2, '0')}";
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAgentPerformance();
+  }
+
+  Future<void> fetchAgentPerformance() async {
+    setState(() => loading = true);
+
+    final url =
+        "http://localhost:3000/web/agent-performance"
+        "?agentId=${widget.agentId}&date=$formattedDate";
+
+    try {
+      final res = await http.get(Uri.parse(url));
+      final json = jsonDecode(res.body);
+
+      setState(() {
+        data = json;
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
+    }
+  }
+
+  // ================= DATE PICKER =================
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (picked != null && picked != selectedDate) {
+      setState(() => selectedDate = picked);
+      fetchAgentPerformance();
+    }
+  }
+
+  // ================= CSV EXPORT =================
+
   String _csvSafe(String value) {
     return '"${value.replaceAll('"', '""').replaceAll('\n', ' ')}"';
   }
 
   void _exportAgentPerformance() {
-    String csv = "";
+    if (data == null) return;
 
-    // ===== Agent Info =====
-    csv += "Agent Performance Report\n";
+    final summary = data!["summary"];
+    final time = data!["timeActivity"];
+    final logs = data!["logs"];
+
+    String csv = "Agent Performance Report\n\n";
+
     csv += "Agent Name,Date\n";
-    csv += "${_csvSafe(agentInfo['name'])},${_csvSafe(agentInfo['date'])}\n\n";
+    csv += "${_csvSafe(widget.agentName)},$formattedDate\n\n";
 
-    // ===== Call Summary =====
-    csv += "Call Summary\n";
     csv += "Total Calls,Connected,Missed\n";
     csv +=
-        "${callSummary['total']},${callSummary['connected']},${callSummary['missed']}\n\n";
+        "${summary['total']},${summary['connected']},${summary['missed']}\n\n";
 
-    // ===== Time Activity =====
-    csv += "Time Activity\n";
     csv += "Total Duration,Avg Duration,First Call,Last Call\n";
     csv +=
-        "${_csvSafe(timeActivity['totalDuration']!)},"
-        "${_csvSafe(timeActivity['avgDuration']!)},"
-        "${_csvSafe(timeActivity['firstCall']!)},"
-        "${_csvSafe(timeActivity['lastCall']!)}\n\n";
+        "${time['totalDuration']},${time['avgDuration']},${time['firstCall']},${time['lastCall']}\n\n";
 
-    // ===== Activity Logs =====
-    csv += "Lead Name,Company,Phone,Time,Duration,Status\n";
+    csv += "Lead,Company,Phone,Time,Status\n";
 
-    for (final log in activityLogs) {
+    for (final log in logs) {
       csv +=
           "${_csvSafe(log['name'])},"
-          "${_csvSafe(log['company'])},"
-          "${_csvSafe(log['phone'])},"
+          "${_csvSafe(log['company'] ?? '')},"
+          "${_csvSafe(log['phone'] ?? '')},"
           "${_csvSafe(log['time'])},"
-          "${_csvSafe(log['duration'])},"
           "${_csvSafe(log['status'])}\n";
     }
 
-    // ===== Download =====
     final bytes = utf8.encode(csv);
     final blob = html.Blob([bytes], 'text/csv;charset=utf-8;');
     final url = html.Url.createObjectUrlFromBlob(blob);
 
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute(
         "download",
-        "${agentInfo['name']}_performance_${agentInfo['date']}.csv",
+        "agent_performance_${widget.agentName}_$formattedDate.csv",
       )
       ..click();
 
     html.Url.revokeObjectUrl(url);
   }
 
-  // ================= BUILD =================
+  // ================= UI =================
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (data == null || data!["success"] != true) {
+      return const Center(child: Text("Failed to load data"));
+    }
+
+    final summary = data!["summary"];
+    final time = data!["timeActivity"];
+    final logs = data!["logs"];
+    final pagination = data!["pagination"];
+    final int totalResults =
+        int.tryParse(pagination["total"].toString()) ?? 0;
+
     return WebLayout(
-      selectedIndex: 2,
+      selectedIndex: 0,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -131,9 +155,18 @@ class AgentPerformanceScreen extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(width: 300, child: _leftColumn()),
+                SizedBox(
+                  width: 300,
+                  child: Column(
+                    children: [
+                      _summaryCard(summary),
+                      const SizedBox(height: 16),
+                      _timeCard(time),
+                    ],
+                  ),
+                ),
                 const SizedBox(width: 20),
-                Expanded(child: _activityTable()),
+                Expanded(child: _activityTable(logs, totalResults)),
               ],
             ),
           ],
@@ -153,11 +186,11 @@ class AgentPerformanceScreen extends StatelessWidget {
           children: [
             const Text(
               "Agent Performance",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700),
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             Text(
-              "Reviewing daily activity for ${agentInfo["name"]}",
+              "Reviewing daily activity for ${widget.agentName}",
               style: const TextStyle(color: Colors.grey),
             ),
           ],
@@ -165,9 +198,9 @@ class AgentPerformanceScreen extends StatelessWidget {
         Row(
           children: [
             OutlinedButton.icon(
-              onPressed: () {},
+              onPressed: _pickDate,
               icon: const Icon(Icons.calendar_today, size: 16),
-              label: Text(agentInfo["date"]),
+              label: Text(formattedDate),
             ),
             const SizedBox(width: 12),
             OutlinedButton.icon(
@@ -181,37 +214,33 @@ class AgentPerformanceScreen extends StatelessWidget {
     );
   }
 
-  // ================= LEFT COLUMN =================
+  // ================= LEFT CARDS =================
 
-  Widget _leftColumn() {
-    return Column(
-      children: [
-        _callSummaryCard(),
-        const SizedBox(height: 16),
-        _timeActivityCard(),
-      ],
-    );
-  }
-
-  Widget _callSummaryCard() {
+  Widget _summaryCard(Map s) {
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Call Summary",
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          const Text("Call Summary",
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
           Text(
-            "${callSummary["total"]}",
-            style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+            "${int.tryParse(s['total'].toString()) ?? 0}",
+            style:
+                const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const Text("Total Calls", style: TextStyle(color: Colors.grey)),
           const SizedBox(height: 12),
-          _summaryRow("Connected", callSummary["connected"], Colors.green),
-          const SizedBox(height: 6),
-          _summaryRow("Missed", callSummary["missed"], Colors.red),
+          _summaryRow(
+            "Connected",
+            int.tryParse(s["connected"].toString()) ?? 0,
+            Colors.green,
+          ),
+          _summaryRow(
+            "Missed",
+            int.tryParse(s["missed"].toString()) ?? 0,
+            Colors.red,
+          ),
         ],
       ),
     );
@@ -224,27 +253,25 @@ class AgentPerformanceScreen extends StatelessWidget {
         Text(label),
         Chip(
           label: Text("$value"),
-          backgroundColor: color.withOpacity(0.1),
+          backgroundColor: color.withOpacity(0.12),
           labelStyle: TextStyle(color: color),
         ),
       ],
     );
   }
 
-  Widget _timeActivityCard() {
+  Widget _timeCard(Map t) {
     return _card(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Time Activity",
-            style: TextStyle(fontWeight: FontWeight.w600),
-          ),
+          const Text("Time Activity",
+              style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 12),
-          _timeRow("Total Duration", timeActivity["totalDuration"]!),
-          _timeRow("Avg Duration", timeActivity["avgDuration"]!),
-          _timeRow("First Call", timeActivity["firstCall"]!),
-          _timeRow("Last Call", timeActivity["lastCall"]!),
+          _timeRow("Total Duration", t["totalDuration"]),
+          _timeRow("Avg Duration", t["avgDuration"]),
+          _timeRow("First Call", t["firstCall"]),
+          _timeRow("Last Call", t["lastCall"]),
         ],
       ),
     );
@@ -265,68 +292,62 @@ class AgentPerformanceScreen extends StatelessWidget {
 
   // ================= ACTIVITY TABLE =================
 
-  Widget _activityTable() {
+  Widget _activityTable(List logs, int total) {
     return _card(
       Column(
         children: [
-          _tableHeader(),
-          const Divider(height: 1),
-          ...activityLogs.map(_tableRow).toList(),
-          const Divider(height: 1),
-          _pagination(),
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(flex: 2, child: Text("LEAD NAME")),
+                Expanded(child: Text("PHONE")),
+                Expanded(child: Text("TIME")),
+                Expanded(child: Text("DURATION")),
+                Expanded(child: Text("STATUS")),
+              ],
+            ),
+          ),
+          const Divider(),
+          ...logs.map((log) => _tableRow(log)).toList(),
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              "Showing ${logs.length} of $total results",
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _tableHeader() {
-    return const Padding(
-      padding: EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Expanded(flex: 2, child: Text("LEAD NAME")),
-          Expanded(child: Text("PHONE")),
-          Expanded(child: Text("TIME")),
-          Expanded(child: Text("DURATION")),
-          Expanded(child: Text("STATUS")),
-          SizedBox(width: 40),
-        ],
-      ),
-    );
-  }
-
-  Widget _tableRow(Map<String, dynamic> log) {
+  Widget _tableRow(Map log) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
       child: Row(
         children: [
           Expanded(
             flex: 2,
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(radius: 14, child: Text(log["name"][0])),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      log["name"],
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    Text(
-                      log["company"],
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
+                Text(log["name"],
+                    style:
+                        const TextStyle(fontWeight: FontWeight.w600)),
+                Text(
+                  log["company"] ?? "",
+                  style:
+                      const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
             ),
           ),
-          Expanded(child: Text(log["phone"])),
-          Expanded(child: Text(log["time"])),
-          Expanded(child: Text(log["duration"])),
+          Expanded(child: Text(log["phone"] ?? "")),
+          Expanded(child: Text(log["time"] ?? "--")),
+          const Expanded(child: Text("--")),
           Expanded(child: _statusChip(log["status"])),
-          TextButton(onPressed: () {}, child: const Text("View")),
         ],
       ),
     );
@@ -334,52 +355,25 @@ class AgentPerformanceScreen extends StatelessWidget {
 
   Widget _statusChip(String status) {
     Color color;
-    switch (status) {
-      case "Connected":
+    switch (status.toLowerCase()) {
+      case "connected":
         color = Colors.green;
         break;
-      case "No Answer":
+      case "no activity":
+      case "no answer":
         color = Colors.red;
         break;
-      case "Meeting Booked":
-        color = Colors.blue;
-        break;
-      case "Callback":
+      case "callback":
         color = Colors.orange;
         break;
       default:
-        color = Colors.grey;
+        color = Colors.blue;
     }
 
     return Chip(
       label: Text(status),
       backgroundColor: color.withOpacity(0.12),
-      labelStyle: TextStyle(color: color, fontSize: 12),
-    );
-  }
-
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1–5 of 85 results"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 8),
-              Text("1"),
-              SizedBox(width: 8),
-              Text("2"),
-              SizedBox(width: 8),
-              Text("3"),
-              SizedBox(width: 8),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ],
-      ),
+      labelStyle: TextStyle(color: color),
     );
   }
 
@@ -391,7 +385,7 @@ class AgentPerformanceScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: child,
     );

@@ -29,7 +29,7 @@ class _UploadLeadsScreenState extends State<UploadLeadsScreen> {
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 5,
+      selectedIndex: 4,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(

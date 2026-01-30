@@ -63,8 +63,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           "${agent.status},"
           "${agent.totalCalls},"
           "${agent.connected},"
-          "${agent.missed},"
-          "${agent.avgDurationFormatted}\n";
+          "${agent.missed}\n";
     }
 
     final bytes = utf8.encode(csv);
@@ -203,18 +202,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 positive: true,
               ),
             ),
-            _statItem(
-              cardWidth,
-              StatCard(
-                title: "Avg Duration",
-                value: formatDuration(
-                  (summary.avgDuration * 60).round(),
-                ),
-                subtitle: "Across agents",
-                icon: Icons.timer,
-                positive: true,
-              ),
-            ),
+            
             _statItem(
               cardWidth,
               StatCard(

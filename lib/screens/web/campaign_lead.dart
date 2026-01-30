@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
-import 'package:truecaller/screens/web/base_layout.dart';
 import 'dart:convert';
 import 'dart:html' as html;
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:truecaller/screens/web/base_layout.dart';
 
 class CampaignLeadsScreen extends StatefulWidget {
   const CampaignLeadsScreen({super.key});
@@ -11,8 +12,47 @@ class CampaignLeadsScreen extends StatefulWidget {
 }
 
 class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
-  final List<Lead> leads = demoLeads;
+  static const String baseUrl = "http://localhost:3000";
+
+  List<Lead> leads = [];
+  bool loading = true;
+
+  late int campaignId;
+  late String campaignName;
+
+  bool _initialized = false;
+
+  /* ================= FETCH LEADS ================= */
+
+  Future<void> _loadLeads() async {
+    setState(() => loading = true);
+
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/web/campaigns/$campaignId/leads"),
+      );
+
+      final json = jsonDecode(res.body);
+
+      if (json["success"] == true) {
+        setState(() {
+          leads = (json["data"] as List).map((e) => Lead.fromJson(e)).toList();
+          loading = false;
+        });
+      } else {
+        setState(() => loading = false);
+      }
+    } catch (e) {
+      debugPrint("Load leads error: $e");
+      setState(() => loading = false);
+    }
+  }
+
+  /* ================= EXPORT ================= */
+
   void _exportLeads() {
+    if (leads.isEmpty) return;
+
     String csv = "Name,Company,Phone,Email,Status,Telecaller,Last Activity\n";
 
     for (final l in leads) {
@@ -24,75 +64,51 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
 
-    final anchor = html.AnchorElement(href: url)
+    html.AnchorElement(href: url)
       ..setAttribute("download", "campaign_leads.csv")
       ..click();
 
     html.Url.revokeObjectUrl(url);
   }
 
-  void _importLeads() {
-    final uploadInput = html.FileUploadInputElement()..accept = '.csv';
-    uploadInput.click();
-
-    uploadInput.onChange.listen((event) {
-      final file = uploadInput.files?.first;
-      if (file == null) return;
-
-      final reader = html.FileReader();
-      reader.readAsText(file);
-
-      reader.onLoadEnd.listen((event) {
-        final content = reader.result as String;
-        final lines = const LineSplitter().convert(content);
-
-        // Skip header
-        final newLeads = lines.skip(1).map((line) {
-          final values = line.split(',');
-
-          return Lead(
-            name: values[0],
-            company: values[1],
-            phone: values[2],
-            email: values[3],
-            status: values[4],
-            telecaller: values[5],
-            lastActivity: values[6],
-          );
-        }).toList();
-
-        setState(() {
-          leads.addAll(newLeads);
-        });
-      });
-    });
-  }
+  /* ================= BUILD ================= */
 
   @override
   Widget build(BuildContext context) {
+    final args =
+        ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+
+    campaignId = args["campaignId"];
+    campaignName = args["campaignName"];
+
+    if (!_initialized) {
+      _initialized = true;
+      _loadLeads();
+    }
+
     return WebLayout(
       selectedIndex: 2,
       child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 24),
-              _statsRow(),
-              const SizedBox(height: 20),
-              _filtersRow(),
-              const SizedBox(height: 20),
-              _tableCard(),
-            ],
-          ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 24),
+            _statsRow(),
+            const SizedBox(height: 20),
+            _filtersRow(),
+            const SizedBox(height: 20),
+            loading
+                ? const Center(child: CircularProgressIndicator())
+                : _tableCard(),
+          ],
         ),
       ),
     );
   }
 
-  // ================= HEADER =================
+  /* ================= HEADER ================= */
 
   Widget _header() {
     return Row(
@@ -100,31 +116,25 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
-              "Campaigns > Q4 Renewal Drive > Leads",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
+              "Campaigns > $campaignName > Leads",
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
-              "Q4 Renewal Drive Leads",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              "$campaignName Leads",
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
             ),
           ],
         ),
         Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_none),
-              onPressed: () {},
-            ),
-            const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: _importLeads,
-              icon: const Icon(Icons.upload_file),
-              label: const Text("Import CSV"),
+              onPressed: _exportLeads,
+              icon: const Icon(Icons.download),
+              label: const Text("Export CSV"),
             ),
-
             const SizedBox(width: 12),
             ElevatedButton.icon(
               onPressed: () {},
@@ -137,24 +147,29 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
     );
   }
 
-  // ================= STATS =================
+  /* ================= STATS ================= */
 
   Widget _statsRow() {
     return Wrap(
       spacing: 16,
       runSpacing: 16,
       children: [
-        _statCard("Total Leads", "2,540", "Target: 3,000"),
-        _statCard("Contacted", "1,620", "64%"),
-        _statCard("Qualified Leads", "342", "+21.1%"),
-        _statCard("Avg. Call Duration", "4m 12s", "+30s vs Avg"),
+        _statCard("Total Leads", leads.length.toString()),
+        _statCard(
+          "Converted",
+          leads.where((l) => l.status == "Converted").length.toString(),
+        ),
+        _statCard(
+          "Interested",
+          leads.where((l) => l.status == "Interested").length.toString(),
+        ),
       ],
     );
   }
 
-  Widget _statCard(String title, String value, String subtitle) {
+  Widget _statCard(String title, String value) {
     return Container(
-      width: 240,
+      width: 220,
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
       child: Column(
@@ -166,14 +181,12 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
             value,
             style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(fontSize: 12)),
         ],
       ),
     );
   }
 
-  // ================= FILTERS =================
+  /* ================= FILTERS ================= */
 
   Widget _filtersRow() {
     return Row(
@@ -181,38 +194,19 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         Expanded(
           child: TextField(
             decoration: InputDecoration(
-              hintText: "Search lead by name, phone or email...",
+              hintText: "Search by name, phone or email...",
               prefixIcon: const Icon(Icons.search),
-              isDense: true,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        _dropdownButton("Status: All"),
-        const SizedBox(width: 12),
-        _dropdownButton("Telecaller: All"),
-        const SizedBox(width: 12),
-        OutlinedButton.icon(
-          onPressed: _exportLeads,
-          icon: const Icon(Icons.download),
-          label: const Text("Export List"),
-        ),
       ],
     );
   }
 
-  Widget _dropdownButton(String text) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.filter_list),
-      label: Text(text),
-    );
-  }
-
-  // ================= TABLE =================
+  /* ================= TABLE ================= */
 
   Widget _tableCard() {
     return Container(
@@ -221,23 +215,21 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
         children: [
           _tableHeader(),
           const Divider(height: 1),
-          ...leads.map(_tableRow).toList(),
-          const Divider(height: 1),
-          _pagination(),
+          ...leads.map(_tableRow),
         ],
       ),
     );
   }
 
   Widget _tableHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       child: Row(
-        children: const [
-          Expanded(flex: 3, child: Text("LEAD NAME")),
-          Expanded(flex: 3, child: Text("CONTACT INFO")),
-          Expanded(flex: 2, child: Text("CAMPAIGN STATUS")),
-          Expanded(flex: 2, child: Text("ASSIGNED TELECALLER")),
+        children: [
+          Expanded(flex: 3, child: Text("LEAD")),
+          Expanded(flex: 3, child: Text("CONTACT")),
+          Expanded(flex: 2, child: Text("STATUS")),
+          Expanded(flex: 2, child: Text("TELECALLER")),
           Expanded(flex: 2, child: Text("LAST ACTIVITY")),
         ],
       ),
@@ -245,43 +237,56 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   }
 
   Widget _tableRow(Lead l) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click, // 🖱️ web UX
+      child: InkWell(
+        onTap: () {
+          // 🔥 NAVIGATION TO LEAD ACTIVITY
+          Navigator.pushNamed(
+            context,
+            '/lead-activity',
+            arguments: {"leadId": l.id},
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.name,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      l.company,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
                 ),
-                Text(
-                  l.company,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l.phone),
+                    Text(
+                      l.email,
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Expanded(flex: 2, child: _statusChip(l.status)),
+              Expanded(flex: 2, child: Text(l.telecaller)),
+              Expanded(flex: 2, child: Text(l.lastActivity)),
+            ],
           ),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l.phone),
-                Text(
-                  l.email,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
-            ),
-          ),
-          Expanded(flex: 2, child: _statusChip(l.status)),
-          Expanded(flex: 2, child: Text(l.telecaller)),
-          Expanded(flex: 2, child: Text(l.lastActivity)),
-        ],
+        ),
       ),
     );
   }
@@ -289,20 +294,17 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   Widget _statusChip(String status) {
     Color color;
     switch (status) {
-      case "Interested":
-        color = Colors.orange;
-        break;
       case "Converted":
         color = Colors.green;
+        break;
+      case "Interested":
+        color = Colors.orange;
         break;
       case "Call Back":
         color = Colors.purple;
         break;
-      case "New Lead":
-        color = Colors.blue;
-        break;
       default:
-        color = Colors.grey;
+        color = Colors.blue;
     }
 
     return Chip(
@@ -312,32 +314,7 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
     );
   }
 
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1 to 5 of 2,540 results"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 8),
-              Text("1"),
-              SizedBox(width: 8),
-              Text("2"),
-              SizedBox(width: 8),
-              Text("3"),
-              SizedBox(width: 8),
-              Icon(Icons.chevron_right),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ================= SHARED =================
+  /* ================= SHARED ================= */
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(
@@ -348,9 +325,10 @@ class _CampaignLeadsScreenState extends State<CampaignLeadsScreen> {
   }
 }
 
-// ================= DEMO DATA =================
+/* ================= MODEL ================= */
 
 class Lead {
+  final int id; 
   final String name;
   final String company;
   final String phone;
@@ -360,6 +338,7 @@ class Lead {
   final String lastActivity;
 
   Lead({
+    required this.id,
     required this.name,
     required this.company,
     required this.phone,
@@ -368,25 +347,18 @@ class Lead {
     required this.telecaller,
     required this.lastActivity,
   });
-}
 
-final demoLeads = [
-  Lead(
-    name: "Sarah Miller",
-    company: "Director, TechCorp",
-    phone: "+1 (555) 123-4567",
-    email: "sarah.m@techcorp.com",
-    status: "Interested",
-    telecaller: "Jane Cooper",
-    lastActivity: "Today, 10:30 AM",
-  ),
-  Lead(
-    name: "Michael Chen",
-    company: "Manager, Solutions Inc.",
-    phone: "+1 (555) 987-6543",
-    email: "m.chen@solutions.inc",
-    status: "New Lead",
-    telecaller: "Unassigned",
-    lastActivity: "Yesterday",
-  ),
-];
+  factory Lead.fromJson(Map<String, dynamic> json) {
+    return Lead(
+      id: json["id"], // 🔥 BACKEND MUST SEND THIS
+      name: json["name"] ?? "",
+      company: json["company"] ?? "",
+      phone: json["phone"] ?? "",
+      email: json["email"] ?? "",
+      status: json["status"] ?? "New Lead",
+      telecaller: json["telecaller"] ?? "Unassigned",
+      lastActivity: json["lastActivity"] ?? "-",
+
+    );
+  }
+}

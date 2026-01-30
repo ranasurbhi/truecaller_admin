@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:truecaller/models/team_member.dart';
 import 'package:truecaller/screens/web/base_layout.dart';
+import 'package:truecaller/screens/web/edit_user.dart';
+import 'package:truecaller/services/api_service.dart';
 
 class TeamMembersScreen extends StatefulWidget {
   TeamMembersScreen({super.key});
@@ -14,52 +16,52 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
 
   String _selectedStatus = "Active";
 
-  final List<TeamMember> members = [
-    TeamMember(
-      name: "Sarah Jenkins",
-      role: "Senior Telecaller",
-      email: "s.jenkins@example.com",
-      joiningDate: "Jan 15, 2021",
-      status: "Active",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Offline",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Break",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Offline",
-    ),
-    TeamMember(
-      name: "Michael Chen",
-      role: "Junior Telecaller",
-      email: "m.chen@example.com",
-      joiningDate: "Mar 10, 2022",
-      status: "Break",
-    ),
-  ];
+  List<TeamMember> members = [];
+  bool loading = true;
+  Map<String, int> stats = {};
 
   final _statcolor = {
     'Active': Colors.green,
     'Break': Colors.amber,
     'Offline': Colors.deepPurple,
   };
+  @override
+  void initState() {
+    super.initState();
+    _loadMembers();
+  }
+
+  Future<void> _loadMembers() async {
+    try {
+      final data = await ApiService.fetchTeamMembers();
+
+      debugPrint("TEAM MEMBERS RAW: $data");
+
+      setState(() {
+        members = (data["users"] as List)
+            .map((e) => TeamMember.fromJson(e))
+            .toList();
+
+        stats = {
+          "total": int.parse(data["stats"]["total"].toString()),
+          "active": int.parse(data["stats"]["active"].toString()),
+          "inactive": int.parse(data["stats"]["inactive"].toString()),
+        };
+
+        loading = false;
+      });
+    } catch (e) {
+      debugPrint("TeamMembers error: $e");
+      setState(() => loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return WebLayout(
       selectedIndex: 1,
       child: SingleChildScrollView(
@@ -129,14 +131,22 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
     return Wrap(
       spacing: 16,
       runSpacing: 16,
-      children: const [
+      children: [
         _StatCard(
           title: "Total Members",
-          value: "42",
-          subtitle: "+2 this week",
+          value: stats["total"]?.toString() ?? "0",
+          subtitle: "All users",
         ),
-        _StatCard(title: "Active Now", value: "12", subtitle: "Online"),
-        _StatCard(title: "Avg Performance", value: "88%", subtitle: "+1.2%"),
+        _StatCard(
+          title: "Active Now",
+          value: stats["active"]?.toString() ?? "0",
+          subtitle: "Online",
+        ),
+        _StatCard(
+          title: "Inactive",
+          value: stats["inactive"]?.toString() ?? "0",
+          subtitle: "Offline",
+        ),
       ],
     );
   }
@@ -250,8 +260,14 @@ class _TeamMembersScreenState extends State<TeamMembersScreen> {
                 DataCell(
                   GestureDetector(
                     child: Text(member.name),
-                    onTap: () =>
-                        Navigator.pushReplacementNamed(context, '/edit-user'),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => EditUserScreen(userId: member.id),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 DataCell(Text(member.role)),

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class CreateWhatsappTemplateScreen extends StatefulWidget {
@@ -13,6 +15,8 @@ class CreateWhatsappTemplateScreen extends StatefulWidget {
 
 class _CreateWhatsappTemplateScreenState
     extends State<CreateWhatsappTemplateScreen> {
+  static const String baseUrl = "http://localhost:3000";
+
   // ================= CONTROLLERS =================
 
   final TextEditingController templateNameCtrl = TextEditingController();
@@ -23,12 +27,14 @@ class _CreateWhatsappTemplateScreenState
   Uint8List? headerFileBytes;
   String? headerFileName;
 
-  // ================= VARIABLES =================
+  // ================= STATE =================
+
+  bool saving = false;
 
   final List<String> variables = [
-    "{{customer_name}}",
-    "{{telecaller_name}}",
-    "{{campaign_name}}",
+    "customer_name",
+    "telecaller_name",
+    "campaign_name",
   ];
 
   // ================= BUILD =================
@@ -39,17 +45,13 @@ class _CreateWhatsappTemplateScreenState
       selectedIndex: 3,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 3, child: _formSection()),
-                const SizedBox(width: 24),
-                Expanded(flex: 2, child: _whatsappPreview()),
-              ],
-            );
-          },
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: _formSection()),
+            const SizedBox(width: 24),
+            Expanded(flex: 2, child: _whatsappPreview()),
+          ],
         ),
       ),
     );
@@ -99,8 +101,8 @@ class _CreateWhatsappTemplateScreenState
           ],
         ),
         IconButton(
-          onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
         ),
       ],
     );
@@ -115,7 +117,7 @@ class _CreateWhatsappTemplateScreenState
         TextField(
           controller: templateNameCtrl,
           decoration: InputDecoration(
-            hintText: "e.g., Welcome Message - Campaign A",
+            hintText: "e.g. Welcome Message - Campaign A",
             isDense: true,
             border:
                 OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -134,14 +136,14 @@ class _CreateWhatsappTemplateScreenState
         border: Border.all(color: Colors.blue.withOpacity(0.2)),
       ),
       child: const Text(
-        "Using Dynamic Variables\n\n"
-        "Insert variables like {{customer_name}} to personalize messages.",
+        "Dynamic Variables\n\n"
+        "Use variables like {{customer_name}} to personalize messages.",
         style: TextStyle(fontSize: 12),
       ),
     );
   }
 
-  // ================= HEADER ATTACHMENT (FIXED) =================
+  // ================= HEADER ATTACHMENT =================
 
   Widget _headerAttachment() {
     return Column(
@@ -153,7 +155,7 @@ class _CreateWhatsappTemplateScreenState
         InkWell(
           onTap: _pickHeaderFile,
           child: Container(
-            height: 100,
+            height: 90,
             decoration: BoxDecoration(
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(8),
@@ -161,9 +163,7 @@ class _CreateWhatsappTemplateScreenState
             child: Center(
               child: headerFileName == null
                   ? const Text(
-                      "Click to upload or drag and drop\n"
-                      "JPG, PNG, PDF (Max 10MB)",
-                      textAlign: TextAlign.center,
+                      "Upload JPG / PNG / PDF (max 10MB)",
                       style:
                           TextStyle(fontSize: 12, color: Colors.grey),
                     )
@@ -187,7 +187,7 @@ class _CreateWhatsappTemplateScreenState
 
     if (result != null && result.files.single.bytes != null) {
       setState(() {
-        headerFileBytes = result.files.single.bytes!;
+        headerFileBytes = result.files.single.bytes;
         headerFileName = result.files.single.name;
       });
     }
@@ -233,8 +233,6 @@ class _CreateWhatsappTemplateScreenState
     );
   }
 
-  // ================= TEXT FORMATTING (WORKING) =================
-
   Widget _editorToolbar() {
     return Row(
       children: [
@@ -254,7 +252,8 @@ class _CreateWhatsappTemplateScreenState
         PopupMenuButton<String>(
           onSelected: _insertVariable,
           itemBuilder: (_) => variables
-              .map((v) => PopupMenuItem(value: v, child: Text(v)))
+              .map((v) =>
+                  PopupMenuItem(value: v, child: Text("{{$v}}")))
               .toList(),
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 8),
@@ -272,44 +271,78 @@ class _CreateWhatsappTemplateScreenState
 
     if (!sel.isValid || sel.isCollapsed) return;
 
-    final selected =
-        text.substring(sel.start, sel.end);
-
-    final newText = text.replaceRange(
+    final selected = text.substring(sel.start, sel.end);
+    messageCtrl.text = text.replaceRange(
       sel.start,
       sel.end,
       "$wrapper$selected$wrapper",
     );
 
-    messageCtrl.text = newText;
     messageCtrl.selection = TextSelection.collapsed(
       offset: sel.start + selected.length + 2,
     );
-
-    setState(() {});
   }
 
-  void _insertVariable(String variable) {
-    final text = messageCtrl.text;
+  void _insertVariable(String v) {
     final sel = messageCtrl.selection;
+    final text = messageCtrl.text;
+    final variable = "{{$v}}";
 
-    final newText =
+    messageCtrl.text =
         text.replaceRange(sel.start, sel.end, variable);
 
-    messageCtrl.text = newText;
     messageCtrl.selection = TextSelection.collapsed(
       offset: sel.start + variable.length,
     );
+  }
 
-    setState(() {});
+  // ================= SAVE =================
+
+  Future<void> _saveTemplate() async {
+    if (templateNameCtrl.text.trim().isEmpty ||
+        messageCtrl.text.trim().isEmpty) {
+      _toast("Template name & message required");
+      return;
+    }
+
+    setState(() => saving = true);
+
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/message-templates"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "name": templateNameCtrl.text.trim(),
+          "message": messageCtrl.text.trim(),
+          "variables": variables,
+        }),
+      );
+
+      if (res.statusCode == 201) {
+        _toast("Template created successfully");
+        Navigator.pop(context);
+      } else {
+        _toast("Failed to create template");
+      }
+    } catch (e) {
+      _toast("Server error");
+    }
+
+    setState(() => saving = false);
   }
 
   Widget _footerActions() {
     return Row(
       children: [
         ElevatedButton(
-          onPressed: () {},
-          child: const Text("Save Template"),
+          onPressed: saving ? null : _saveTemplate,
+          child: saving
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text("Save Template"),
         ),
         const SizedBox(width: 12),
         OutlinedButton(
@@ -326,49 +359,44 @@ class _CreateWhatsappTemplateScreenState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: _cardDecoration(),
-      child: SingleChildScrollView(
-        child: Column(
-          children: [
-            const Text(
-              "WHATSAPP PREVIEW",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            _phoneMockup(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _phoneMockup() {
-    return Container(
-      width: 220,
-      height: 420,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF075E54),
-        borderRadius: BorderRadius.circular(30),
-      ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text("JD  John Doe",
-              style: TextStyle(color: Colors.white, fontSize: 12)),
+          const Text(
+            "WHATSAPP PREVIEW",
+            style: TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                messageCtrl.text.isEmpty
-                    ? "Message preview will appear here..."
-                    : messageCtrl.text,
-                style: const TextStyle(fontSize: 12),
-              ),
+          Container(
+            width: 220,
+            height: 420,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF075E54),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("JD  John Doe",
+                    style:
+                        TextStyle(color: Colors.white, fontSize: 12)),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      messageCtrl.text.isEmpty
+                          ? "Message preview..."
+                          : messageCtrl.text,
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -376,7 +404,12 @@ class _CreateWhatsappTemplateScreenState
     );
   }
 
-  // ================= SHARED =================
+  // ================= UTIL =================
+
+  void _toast(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(

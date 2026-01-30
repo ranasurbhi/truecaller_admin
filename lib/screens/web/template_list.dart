@@ -1,4 +1,7 @@
+import 'dart:convert';
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class MessageTemplatesScreen extends StatefulWidget {
@@ -9,105 +12,94 @@ class MessageTemplatesScreen extends StatefulWidget {
       _MessageTemplatesScreenState();
 }
 
-class _MessageTemplatesScreenState
-    extends State<MessageTemplatesScreen> {
-  // ================= STATE =================
+class _MessageTemplatesScreenState extends State<MessageTemplatesScreen> {
+  static const String baseUrl = "http://localhost:3000";
 
+  bool loading = true;
+  List<Map<String, dynamic>> templates = [];
   String selectedStatus = "All";
-  String selectedType = "All";
 
-  final List<Map<String, dynamic>> templates = [
-    {
-      "name": "Welcome Message V1",
-      "type": "WhatsApp",
-      "status": "Active",
-      "content": "Hi {{name}}, thanks for joining us! We are excited to have you.",
-      "date": "Oct 24, 2023",
-    },
-    {
-      "name": "Follow-up SMS",
-      "type": "SMS",
-      "status": "Active",
-      "content": "Just checking in regarding your interest in our services.",
-      "date": "Oct 22, 2023",
-    },
-    {
-      "name": "Payment Reminder",
-      "type": "Email",
-      "status": "Draft",
-      "content": "This is a friendly reminder that your invoice is due.",
-      "date": "Oct 20, 2023",
-    },
-    {
-      "name": "Black Friday Promo",
-      "type": "WhatsApp",
-      "status": "Active",
-      "content": "Exclusive 50% off just for you! Use code SALE50.",
-      "date": "Oct 18, 2023",
-    },
-    {
-      "name": "Feedback Request",
-      "type": "SMS",
-      "status": "Draft",
-      "content": "How was your experience with our support team?",
-      "date": "Oct 15, 2023",
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadTemplates();
+  }
 
-  // ================= BUILD =================
+  /* ================= API ================= */
+
+  Future<void> _loadTemplates() async {
+    try {
+      final res =
+          await http.get(Uri.parse("$baseUrl/api/message-templates"));
+
+      final data = jsonDecode(res.body);
+
+      setState(() {
+        templates = List<Map<String, dynamic>>.from(data);
+        loading = false;
+      });
+    } catch (e) {
+      debugPrint("Load templates error: $e");
+      setState(() => loading = false);
+    }
+  }
+
+  /* ================= BUILD ================= */
 
   @override
   Widget build(BuildContext context) {
     return WebLayout(
-      selectedIndex: 4,
-      child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 20),
-              _filtersRow(),
-              const SizedBox(height: 16),
-              _tableCard(),
-            ],
-          ),
+      selectedIndex: 3,
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 20),
+            _filtersRow(),
+            const SizedBox(height: 16),
+            loading
+                ? const Center(child: CircularProgressIndicator())
+                : _tableCard(),
+          ],
         ),
       ),
     );
   }
 
-  // ================= HEADER =================
+  /* ================= HEADER ================= */
 
   Widget _header() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
+          children: [
             Text(
               "Message Templates",
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             SizedBox(height: 4),
             Text(
-              "Manage and organize all your communication scripts here.",
+              "Manage and send communication templates",
               style: TextStyle(color: Colors.grey),
             ),
           ],
         ),
         ElevatedButton.icon(
-          onPressed: () {Navigator.pushNamed(context, "/create-template");},
+          onPressed: () {
+            Navigator.pushNamed(context, "/create-template");
+          },
           icon: const Icon(Icons.add),
-          label: const Text("Create New Template"),
+          label: const Text("Create Template"),
         ),
       ],
     );
   }
 
-  // ================= FILTERS =================
+  /* ================= FILTERS ================= */
 
   Widget _filtersRow() {
     return Container(
@@ -118,7 +110,7 @@ class _MessageTemplatesScreenState
           Expanded(
             child: TextField(
               decoration: InputDecoration(
-                hintText: "Search by name or content...",
+                hintText: "Search templates...",
                 prefixIcon: const Icon(Icons.search),
                 isDense: true,
                 border:
@@ -126,8 +118,6 @@ class _MessageTemplatesScreenState
               ),
             ),
           ),
-          const SizedBox(width: 12),
-          _dropdownButton("All Types"),
           const SizedBox(width: 12),
           _statusPill("All"),
           const SizedBox(width: 6),
@@ -139,25 +129,14 @@ class _MessageTemplatesScreenState
     );
   }
 
-  Widget _dropdownButton(String text) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: const Icon(Icons.filter_list),
-      label: Text(text),
-    );
-  }
-
   Widget _statusPill(String value) {
-    final isSelected = selectedStatus == value;
-
+    final active = selectedStatus == value;
     return GestureDetector(
-      onTap: () {
-        setState(() => selectedStatus = value);
-      },
+      onTap: () => setState(() => selectedStatus = value),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.blue : Colors.transparent,
+          color: active ? Colors.blue : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.grey.shade300),
         ),
@@ -165,39 +144,43 @@ class _MessageTemplatesScreenState
           value,
           style: TextStyle(
             fontSize: 12,
-            color: isSelected ? Colors.white : Colors.black,
+            color: active ? Colors.white : Colors.black,
           ),
         ),
       ),
     );
   }
 
-  // ================= TABLE =================
+  /* ================= TABLE ================= */
 
   Widget _tableCard() {
+    if (templates.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: Text("No templates found")),
+      );
+    }
+
     return Container(
       decoration: _cardDecoration(),
       child: Column(
         children: [
           _tableHeader(),
           const Divider(height: 1),
-          ...templates.map(_tableRow).toList(),
-          const Divider(height: 1),
-          _pagination(),
+          ...templates.map(_tableRow),
         ],
       ),
     );
   }
 
   Widget _tableHeader() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       child: Row(
-        children: const [
-          Expanded(flex: 3, child: Text("TEMPLATE NAME")),
-          Expanded(flex: 2, child: Text("TYPE")),
-          Expanded(flex: 4, child: Text("CONTENT PREVIEW")),
-          Expanded(flex: 2, child: Text("LAST MODIFIED")),
+        children: [
+          Expanded(flex: 3, child: Text("NAME")),
+          Expanded(flex: 4, child: Text("MESSAGE")),
+          Expanded(flex: 2, child: Text("CREATED")),
           Expanded(flex: 1, child: Text("ACTIONS")),
         ],
       ),
@@ -211,29 +194,15 @@ class _MessageTemplatesScreenState
         children: [
           Expanded(
             flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(t["name"],
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 4),
-                Text(
-                  t["status"],
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: t["status"] == "Active"
-                        ? Colors.green
-                        : Colors.grey,
-                  ),
-                ),
-              ],
+            child: Text(
+              t["name"],
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ),
-          Expanded(flex: 2, child: _typeChip(t["type"])),
           Expanded(
             flex: 4,
             child: Text(
-              t["content"],
+              t["message"],
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12),
@@ -242,15 +211,18 @@ class _MessageTemplatesScreenState
           Expanded(
             flex: 2,
             child: Text(
-              t["date"],
+              DateTime.parse(t["created_at"])
+                  .toLocal()
+                  .toString()
+                  .split(".")[0],
               style: const TextStyle(fontSize: 12),
             ),
           ),
           Expanded(
             flex: 1,
             child: IconButton(
-              onPressed: () {},
               icon: const Icon(Icons.more_vert),
+              onPressed: () => _openActions(t),
             ),
           ),
         ],
@@ -258,55 +230,127 @@ class _MessageTemplatesScreenState
     );
   }
 
-  Widget _typeChip(String type) {
-    Color color;
-    switch (type) {
-      case "WhatsApp":
-        color = Colors.green;
-        break;
-      case "SMS":
-        color = Colors.blue;
-        break;
-      case "Email":
-        color = Colors.purple;
-        break;
-      default:
-        color = Colors.grey;
-    }
+  /* ================= ACTIONS ================= */
 
-    return Chip(
-      label: Text(type),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(color: color, fontSize: 12),
-    );
-  }
-
-  Widget _pagination() {
-    return Padding(
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text("Showing 1 to 5 of 24 entries"),
-          Row(
-            children: [
-              Icon(Icons.chevron_left),
-              SizedBox(width: 6),
-              Text("1"),
-              SizedBox(width: 6),
-              Text("2"),
-              SizedBox(width: 6),
-              Text("3"),
-              SizedBox(width: 6),
-              Icon(Icons.chevron_right),
-            ],
+  void _openActions(Map<String, dynamic> t) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.send),
+            title: const Text("Send Message"),
+            onTap: () {
+              Navigator.pop(context);
+              _openSendDialog(t);
+            },
           ),
         ],
       ),
     );
   }
 
-  // ================= SHARED =================
+  /* ================= SEND MESSAGE FLOW ================= */
+
+  void _openSendDialog(Map<String, dynamic> template) {
+    final phoneCtrl = TextEditingController();
+
+    final List<dynamic> vars =
+        template["variables"] is String
+            ? jsonDecode(template["variables"])
+            : (template["variables"] ?? []);
+
+    final controllers = {
+      for (var v in vars) v: TextEditingController()
+    };
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Send Message"),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                TextField(
+                  controller: phoneCtrl,
+                  decoration: const InputDecoration(
+                    labelText: "Phone (with country code)",
+                    hintText: "919999999999",
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...vars.map(
+                  (v) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: TextField(
+                      controller: controllers[v],
+                      decoration: InputDecoration(labelText: v),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _sendMessage(
+                templateId: template["id"],
+                phone: phoneCtrl.text.trim(),
+                values: vars.map((v) => controllers[v]!.text).toList(),
+              );
+            },
+            child: const Text("Send"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _sendMessage({
+    required int templateId,
+    required String phone,
+    required List<String> values,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/message-templates/send"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "templateId": templateId,
+          "phoneNumber": phone,
+          "values": values,
+        }),
+      );
+
+      final data = jsonDecode(res.body);
+
+      if (data["success"] == true && data["whatsappUrl"] != null) {
+        html.window.open(data["whatsappUrl"], "_blank");
+      } else {
+        _showError("Failed to send message");
+      }
+    } catch (e) {
+      debugPrint("Send message error: $e");
+      _showError("Something went wrong");
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /* ================= SHARED ================= */
 
   BoxDecoration _cardDecoration() {
     return BoxDecoration(

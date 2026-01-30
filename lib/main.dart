@@ -3,6 +3,7 @@ import 'package:truecaller/screens/web/add_user.dart';
 import 'package:truecaller/screens/web/agent_performance.dart';
 import 'package:truecaller/screens/web/campaign.dart';
 import 'package:truecaller/screens/web/campaign_lead.dart';
+import 'package:truecaller/screens/web/create_campaign_screen.dart';
 import 'package:truecaller/screens/web/create_template.dart';
 import 'package:truecaller/screens/web/dashboard.dart';
 import 'package:truecaller/screens/web/edit_user.dart';
@@ -33,15 +34,15 @@ class MyApp extends StatelessWidget {
             '/login': (context) => const LoginWebScreen(),
             '/add-user': (context) => const AddUserWebScreen(),
             '/team-member': (context) =>  TeamMembersScreen(),
-            '/edit-user': (context) =>  EditUserScreen(),
+            // '/edit-user': (context) =>  EditUserScreen(),
             '/campaign-lead': (context) =>  CampaignLeadsScreen(),
             '/campaign': (context) =>  CampaignManagementWebScreen(),
-            '/activity-log': (context) =>  LeadActivityScreen(),
             '/msg-template': (context) =>  MessageTemplatesScreen(),
             '/create-template': (context) =>  CreateWhatsappTemplateScreen(),
             '/upload-leads': (context) =>  UploadLeadsScreen(),
-            '/agent-performance': (context) =>  AgentPerformanceScreen(),
-
+            // '/agent-performance': (context) =>  AgentPerformanceScreen(),
+            '/add-campaign': (context) =>  CreateCampaignScreen(),
+            '/lead-activity': (context) => const LeadActivityScreen(),
 
         },
     );

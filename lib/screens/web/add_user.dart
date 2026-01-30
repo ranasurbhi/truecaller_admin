@@ -45,18 +45,21 @@ class _AddUserWebScreenState extends State<AddUserWebScreen> {
       return;
     }
 
-    const url = "http://10.37.119.118:3000/users/add-user";
+    const url = "http://localhost:3000/web/users";
 
     try {
       final request = http.MultipartRequest("POST", Uri.parse(url));
+      
       request.fields.addAll({
         "name": nameController.text,
         "email": emailController.text,
         "phone": phoneController.text,
         "password": passwordController.text,
-        "role": roleController.text,
+        "role": roleController.text.isEmpty ? "agent" : roleController.text,
         "team": teamController.text,
-        "date_of_joining": dojController.text,
+        if (dojController.text.isNotEmpty) 
+          "date_of_joining": dojController.text,
+
       });
 
       if (_profileImageBytes != null) {

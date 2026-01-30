@@ -1,10 +1,13 @@
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:truecaller/screens/web/base_layout.dart';
 
 class EditUserScreen extends StatefulWidget {
-  const EditUserScreen({super.key});
+  final int userId;
+  const EditUserScreen({super.key, required this.userId});
 
   @override
   State<EditUserScreen> createState() => _EditUserScreenState();
@@ -14,6 +17,40 @@ class _EditUserScreenState extends State<EditUserScreen> {
   Uint8List? _profileImageBytes;
   bool isActive = true;
 
+  // ================= CONTROLLERS =================
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final phoneController = TextEditingController();
+  final roleController = TextEditingController();
+  final teamController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  // ================= LOAD USER =================
+  Future<void> _loadUser() async {
+    final res = await http.get(
+      Uri.parse("http://localhost:3000/web/users/${widget.userId}"),
+    );
+
+    final json = jsonDecode(res.body);
+    final data = json["data"];
+
+    setState(() {
+      nameController.text = data["name"] ?? "";
+      emailController.text = data["email"] ?? "";
+      phoneController.text = data["phone"] ?? "";
+      roleController.text = data["role"] ?? "";
+      teamController.text = data["team"] ?? "";
+      isActive = data["accepting_calls"] == 1;
+    });
+  }
+
+  // ================= IMAGE PICK =================
   Future<void> _pickProfileImage() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.image,
@@ -27,324 +64,174 @@ class _EditUserScreenState extends State<EditUserScreen> {
     }
   }
 
+  // ================= SAVE =================
+  Future<void> _saveChanges() async {
+    final request = http.MultipartRequest(
+      "PUT",
+      Uri.parse("http://localhost:3000/web/users/${widget.userId}"),
+    );
+
+    request.fields.addAll({
+      "name": nameController.text,
+      "email": emailController.text,
+      "phone": phoneController.text,
+      "role": roleController.text,
+      "team": teamController.text,
+      "status": isActive ? "Active" : "Inactive",
+      if (passwordController.text.isNotEmpty)
+        "password": passwordController.text,
+    });
+
+    if (_profileImageBytes != null) {
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          "profile_image",
+          _profileImageBytes!,
+          filename: "profile.png",
+        ),
+      );
+    }
+
+    final response = await request.send();
+    if (response.statusCode == 200) {
+      Navigator.pop(context);
+    }
+  }
+
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return WebLayout(
       selectedIndex: 1,
       child: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _header(),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 1000) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(width: 320, child: _leftProfileCard()),
-                        const SizedBox(width: 24),
-                        Expanded(child: _rightContent()),
-                      ],
-                    );
-                  }
-                  return Column(
-                    children: [
-                      _leftProfileCard(),
-                      const SizedBox(height: 24),
-                      _rightContent(),
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _header(),
+            const SizedBox(height: 24),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 320, child: _leftProfileCard()),
+                const SizedBox(width: 24),
+                Expanded(child: _rightContent()),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
   // ================= HEADER =================
-
   Widget _header() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
+        const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Text(
-              "Dashboard / Users / Edit Profile",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            SizedBox(height: 8),
-            Text(
-              "Edit User Profile",
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-            ),
-            SizedBox(height: 4),
-            Text(
-              "Update user details, permissions, and security settings.",
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-        Row(
           children: [
-            OutlinedButton(onPressed: () {}, 
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-        ),
-        child: const Text("Cancel"),
-        ),
-            const SizedBox(width: 12),
-            ElevatedButton.icon(
-          onPressed: () {},
-          label: const Text("Save Changes",style: TextStyle(color:Colors.white),),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        ),
+            Text("Dashboard / Users / Edit Profile",
+                style: TextStyle(fontSize: 12, color: Colors.grey)),
+            SizedBox(height: 8),
+            Text("Edit User Profile",
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
           ],
         ),
+        ElevatedButton(
+          onPressed: _saveChanges,
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+          child: const Text("Save Changes",
+              style: TextStyle(color: Colors.white)),
+        ),
       ],
     );
   }
 
-  // ================= LEFT PROFILE =================
-
+  // ================= LEFT =================
   Widget _leftProfileCard() {
-    return Column(
-      children: [
-        _card(
-          child: Column(
+    return _card(
+      child: Column(
+        children: [
+          Stack(
             children: [
-              Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 48,
-                    backgroundImage: _profileImageBytes != null
-                        ? MemoryImage(_profileImageBytes!)
-                        : null,
-                    child: _profileImageBytes == null
-                        ? const Icon(Icons.person, size: 40)
-                        : null,
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: InkWell(
-                      onTap: _pickProfileImage,
-                      child: CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.blue,
-                        child: const Icon(
-                          Icons.edit,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+              CircleAvatar(
+                radius: 48,
+                backgroundImage: _profileImageBytes != null
+                    ? MemoryImage(_profileImageBytes!)
+                    : null,
+                child: _profileImageBytes == null
+                    ? const Icon(Icons.person, size: 40)
+                    : null,
               ),
-              const SizedBox(height: 12),
-              const Text(
-                "Sarah Jenkins",
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                "Telecaller Agent",
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Chip(
-                    label: Text("Active"),
-                    backgroundColor: Color(0xFFE7F6EC),
-                    labelStyle: TextStyle(color: Colors.green),
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: InkWell(
+                  onTap: _pickProfileImage,
+                  child: const CircleAvatar(
+                    radius: 14,
+                    backgroundColor: Colors.blue,
+                    child: Icon(Icons.edit, size: 14, color: Colors.white),
                   ),
-                ],
-              ),
-              const Divider(height: 32),
-              _infoRow("Joined", "Oct 24, 2023"),
-              const SizedBox(height: 8),
-              _infoRow("Last Login", "2 hours ago"),
-            ],
-          ),
-        ),
-        SizedBox(height: 10),
-        _card(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Account Status",
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-              ),
-
-              SizedBox(height: 10),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Active User", style: TextStyle(fontSize: 13)),
-                      const Text(
-                        "User can login and perform actions",
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  Transform.scale(
-                    scale: 0.7, // 1.0 = default, try 0.7–0.9
-                    child: Switch(
-                      value: isActive,
-                      onChanged: (v) {
-                        setState(() => isActive = v);
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Delete Account",
-                        style: TextStyle(color: Colors.red, fontSize: 13),
-                      ),
-                      Text(
-                        "Permanently remove this user",
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: Icon(Icons.delete, color: Colors.red),
-                  ),
-                ],
+                ),
               ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          SwitchListTile(
+            value: isActive,
+            title: const Text("Active User"),
+            onChanged: (v) => setState(() => isActive = v),
+          ),
+        ],
+      ),
     );
   }
 
-  // ================= RIGHT CONTENT =================
-
+  // ================= RIGHT =================
   Widget _rightContent() {
     return Column(
       children: [
-        _personalInfoCard(),
+        _card(
+          title: "Personal Information",
+          child: Column(
+            children: [
+              _input("Full Name", nameController),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(child: _input("Email", emailController)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _input("Phone", phoneController)),
+                ],
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 20),
-        _organizationCard(),
+        _card(
+          title: "Organization",
+          child: Column(
+            children: [
+              _input("Role", roleController),
+              const SizedBox(height: 12),
+              _input("Team", teamController),
+            ],
+          ),
+        ),
         const SizedBox(height: 20),
-        _securityCard(),
+        _card(
+          title: "Security",
+          child: _input("New Password", passwordController, obscure: true),
+        ),
       ],
-    );
-  }
-
-  // ================= CARDS =================
-
-  Widget _personalInfoCard() {
-    return _card(
-      title: "Personal Information",
-      icon: Icons.person_outline,
-      child: Column(
-        children: [
-          _input("Full Name", "Sarah Jenkins"),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _input("Email Address", "sarah.jenkins@company.com"),
-              ),
-              const SizedBox(width: 16),
-              Expanded(child: _input("Phone Number", "+1 (555) 000-1234")),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _organizationCard() {
-    return _card(
-      title: "Organization Settings",
-      icon: Icons.business,
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: _input("Assigned Role", "Telecaller Agent")),
-              const SizedBox(width: 16),
-              Expanded(child: _input("Reports To", "Dwight Schrute")),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _input("Team Assignment", "Sales - North Region"),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  Widget _securityCard() {
-    return _card(
-      title: "Security",
-      icon: Icons.lock_outline,
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text("Password (Last changed 3 months ago)"),
-              TextButton(onPressed: () {}, child: const Text("Reset Password")),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _input("New Password", "********", obscure: true),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _input("Confirm Password", "********", obscure: true),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 
   // ================= SHARED =================
-
-  Widget _card({Widget? child, String? title, IconData? icon}) {
+  Widget _card({Widget? child, String? title}) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -356,16 +243,8 @@ class _EditUserScreenState extends State<EditUserScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (title != null)
-            Row(
-              children: [
-                if (icon != null) Icon(icon, size: 18, color: Colors.blue),
-                if (icon != null) const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+            Text(title,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
           if (title != null) const SizedBox(height: 16),
           if (child != null) child,
         ],
@@ -373,35 +252,15 @@ class _EditUserScreenState extends State<EditUserScreen> {
     );
   }
 
-  Widget _input(String label, String value, {bool obscure = false}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 12)),
-        const SizedBox(height: 6),
-        TextField(
-          obscureText: obscure,
-          decoration: InputDecoration(
-            hintText: value,
-            isDense: true,
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _infoRow(String a, String b) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(a, style: const TextStyle(color: Colors.grey)),
-        Text(b),
-      ],
+  Widget _input(String label, TextEditingController c,
+      {bool obscure = false}) {
+    return TextField(
+      controller: c,
+      obscureText: obscure,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
   }
 }
